@@ -10,6 +10,7 @@ PACKAGEMANIFEST_CSVS=`oc get packagemanifest advanced-cluster-management -n ${AC
 
 function uninstallHub() {
 	printf "UNINSTALL HUB\nDeleting MCH ...\n"
+	echo "DESTROY" | ./clean-clusters.sh
 	kubectl delete mch --all
 	echo 'Sleeping for 200 seconds to allow resources to finalize ...'
 	sleep 200	
@@ -111,7 +112,7 @@ function waitForMCHReleases() {
             helm ls
             break 
         fi
-        echo 'waiting for helm releases'        
+        echo 'waiting for helm releases deployed'        
     done
 }
 
@@ -119,7 +120,7 @@ function waitForHelmReleases() {
 	helmreleases=`oc get helmreleases | awk '{ if(NR>1) print $1 }'`
 	expectedReason=$([ "$UPGRADE_ONLY" == true ] && echo "UpgradeSuccessful" || echo "InstallSuccessful")
     for i in {1..10}; do
-	    echo 'waiting for helm releases'
+	    echo 'waiting for helm releases status'
 		sleep 30
 		for helm in $helmreleases; do  	
 			reason=`oc get helmrelease $helm -o json | jq -r '.status.conditions[].reason | select(.)'`
@@ -127,7 +128,6 @@ function waitForHelmReleases() {
 			if [[ -z "$reason" ]]; then
 				continue
 			elif [[ "$reason" != *"Successful"* ]]; then
-				printf "$helm - $reason\n"
 				continue 2
 				break
 			fi
@@ -150,9 +150,10 @@ function waitForCSV() {
 
 function validateChartVersions() {
 	# retrieve chart versions in GH
-	label=`printf ${TAG#*-}`
-	label=`printf ${label%%-*}`
-	pkg_name=`printf '%s\n' "${TAG//$label-/}"`
+	pkg_name=`printf '%s\n' "${BUILD//DOWNSTREAM-/}"`
+	#label=`printf ${TAG#*-}`
+	#label=`printf ${label%%-*}`
+	#pkg_name=`printf '%s\n' "${TAG//$label-/}"`
 	curl -H "Authorization: token $GITHUB_TOKEN" -L https://github.com/open-cluster-management/multicloudhub-repo/archive/v$pkg_name.tar.gz -o $TMP_DIR/$BUILD.tar.gz
 	tar -xf $TMP_DIR/$BUILD.tar.gz -C $TMP_DIR
 	
