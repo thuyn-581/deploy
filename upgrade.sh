@@ -115,23 +115,24 @@ function waitForMCHReleases() {
     done
 }
 
-function waitForHelmStatus() {
-    helmreleases=`oc get helmreleases | awk '{ if(NR>1) print $1 }'`
-    expectedReason=$([ "$UPGRADE_ONLY" == true ] && echo "UpgradeSuccessful" || echo "InstallSuccessful")
+function waitForHelmReleases() {
+	helmreleases=`oc get helmreleases | awk '{ if(NR>1) print $1 }'`
+	expectedReason=$([ "$UPGRADE_ONLY" == true ] && echo "UpgradeSuccessful" || echo "InstallSuccessful")
     for i in {1..10}; do
-        echo 'waiting for helm releases status'
-	sleep 30
-	for helm in $helmreleases; do  	
-     	    reason=`oc get helmrelease $helm -o json | jq -r '.status.conditions[].reason | select(.)'`
-	    printf "$helm - $reason\n"
-	    if [ -z $reason ]; then
-		continue
-	    elif [[ "$reason" != *"Successful"* ]]; then
-		continue 2
-		break
-	    fi
-	done
-	break 2
+	    echo 'waiting for helm releases'
+		sleep 30
+		for helm in $helmreleases; do  	
+			reason=`oc get helmrelease $helm -o json | jq -r '.status.conditions[].reason | select(.)'`
+			printf "$helm - $reason\n"
+			if [[ -z "$reason" ]]; then
+				continue
+			elif [[ "$reason" != *"Successful"* ]]; then
+				printf "$helm - $reason\n"
+				continue 2
+				break
+			fi
+		done
+		break 2
     done
 }
 
@@ -149,7 +150,6 @@ function waitForCSV() {
 
 function validateChartVersions() {
 	# retrieve chart versions in GH
-	#pkg_name=`printf '%s\n' "${BUILD//DOWNSTREAM-/}"`
 	label=`printf ${TAG#*-}`
 	label=`printf ${label%%-*}`
 	pkg_name=`printf '%s\n' "${TAG//$label-/}"`
@@ -236,7 +236,7 @@ function installHub() {
 	
 	# wait for install/upgrade completed
 	waitForMCHReleases
-	waitForHelmStatus
+	waitForHelmReleases
 	waitForAllPods
 		
 	# increase upgraded-to csv version
@@ -250,8 +250,7 @@ function getNextInstallVersion(){
 	CURR_CHANNEL=`echo ${CURR_CSV_NAME#*.} | awk -F'[v.]' '{print $2"."$3}'`
 
 	if [[ "$PACKAGEMANIFEST_CSVS" == *"$CURR_CSV_NAME"* ]]; then
-		echo "It's there. "
-		TOTAL_POD_COUNT=56
+		echo -n "Latest version of channel $CURR_CHANNEL"
 		CHANNEL=`echo $CURR_CHANNEL | awk -F. -v OFS=. '{$NF++;print}'`
 		sed -i "s/^\(\s*channel\s*:\s*\).*/\1release-$CHANNEL/" ./acm-operator/subscription.yaml
 		CSV_VERSION=`echo v$CHANNEL".0"`
@@ -263,15 +262,22 @@ function getNextInstallVersion(){
 #------------- main -------------
 # uninstall if set
 mch_count=`oc get mch -n $ACM_NAMESPACE | wc -l`
-if [ $CLEANUP_INCLUDED == 'true' ] && [ $mch_count -gt 0 ]; then 
+if [ $CLEANUP_INCLUDED != 'false' ] && [ $mch_count -gt 0 ]; then 
 	uninstallHub 
 fi
 # install base version
 if [ $UPGRADE_ONLY != 'true' ]; then
-	printf "\nInstall base version $STARTING_CSV_VERSION"
+  if [ $INGRESS_CERT_ENABLED == 'true' ]; then
+		printf "\nCreate custom CA configmap in $ACM_NAMESPACE"	
+		oc create configmap custom-ca \
+      --from-file=ca-bundle.crt=$CERT_DIR/*.$INGRESS_DOMAIN.crt \
+      -n $ACM_NAMESPACE
+	fi
+	printf "\nInstall base version $STARTING_CSV_VERSION"	
 	installHub $STARTING_CSV_VERSION
 else
 	getNextInstallVersion
+	
 	v1=$(echo ${CSV_VERSION#*v})
 	v2=$(echo `printf "${BUILD%%-*}"`| awk -F. -v OFS=. '{$NF;print}')
 	while [ "$v1" = "`echo -e "$v1\n$v2" | sort -V | head -n1`" ]
@@ -284,5 +290,4 @@ else
 	sleep 10
 	validateChartVersions
 	validateDeployedImages
-
 fi
