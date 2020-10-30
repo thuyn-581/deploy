@@ -19,9 +19,9 @@ function uninstallHub() {
 	kubectl delete mch --all
 	echo 'Sleeping for 200 seconds to allow resources to finalize ...'
 	sleep 200	
-	./acm-operator/uninstall.sh	
+	/home/root/acm-deploy/acm-operator/uninstall.sh	
 	sleep 30
-	./hack/nuke.sh
+	/home/root/acm-deploy/hack/nuke.sh
 
 	# delete remaining resources if any
 	oc project $ACM_NAMESPACE
