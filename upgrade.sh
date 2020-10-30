@@ -11,6 +11,7 @@ PACKAGEMANIFEST_CSVS=`oc get packagemanifest advanced-cluster-management -n ${AC
 function uninstallHub() {
 	printf "UNINSTALL HUB\nDeleting MCH ...\n"
 	echo "DESTROY" | ./clean-clusters.sh
+	kubectl delete mco --all
 	kubectl delete mch --all
 	echo 'Sleeping for 200 seconds to allow resources to finalize ...'
 	sleep 200	
@@ -151,9 +152,6 @@ function waitForCSV() {
 function validateChartVersions() {
 	# retrieve chart versions in GH
 	pkg_name=`printf '%s\n' "${BUILD//DOWNSTREAM-/}"`
-	#label=`printf ${TAG#*-}`
-	#label=`printf ${label%%-*}`
-	#pkg_name=`printf '%s\n' "${TAG//$label-/}"`
 	curl -H "Authorization: token $GITHUB_TOKEN" -L https://github.com/open-cluster-management/multicloudhub-repo/archive/v$pkg_name.tar.gz -o $TMP_DIR/$BUILD.tar.gz
 	tar -xf $TMP_DIR/$BUILD.tar.gz -C $TMP_DIR
 	
@@ -189,60 +187,66 @@ function validateDeployedImages() {
 
 function installHub() {
 	printf "\nInstall/Upgrade started ...\n"
+	
+	# install acm operator
+	if [ $1 == "latest" ]; then
+		export COMPOSITE_BUNDLE=true
+		export CUSTOM_REGISTRY_REPO="quay.io:443/acm-d"
+		echo $BUILD | ./start.sh
+	else
+		if [ $CSV_VERSION == $STARTING_CSV_VERSION ]; then
+			printf "Set subscription channel ...\n"
+			CHANNEL=`echo $1 | awk -F'[v.]' '{print $2"."$3}'`
+			sed -i "s/^\(\s*channel\s*:\s*\).*/\1release-$CHANNEL/" ./acm-operator/subscription.yaml
+			
+			printf "Switch subscription approval plan to manual ...\n"
+			sed -i "s/^\(\s*installPlanApproval\s*:\s*\).*/\1Manual/" ./acm-operator/subscription.yaml
+			
+			printf "Set subscrition starting version ...\n"
+			LINE_COUNT=`awk '/startingCSV/{ print NR; exit }' ./acm-operator/subscription.yaml | wc -l`
+			if [ $LINE_COUNT -lt 1 ]; then
+				sed -i "/sourceNamespace/a\ \ startingCSV: advanced-cluster-management.$1" ./acm-operator/subscription.yaml
+			else
+				sed -i "s/advanced-cluster-management.v.*/advanced-cluster-management.$1/g" ./acm-operator/subscription.yaml
+			fi
+			
+			printf 'Apply preregs ...\n'
+			kubectl apply --openapi-patch=true -k prereqs/
+			oc project $ACM_NAMESPACE
+					
+			printf "\nInstall acm operator ...\n"
+			sed -i 's|^\(\s*newName\s*:\s*\).*|\1quay.io:443/acm-d/acm-custom-registry|' ./acm-operator/kustomization.yaml
+			sed -i "s/^\(\s*newTag\s*:\s*\).*/\1$BUILD/" ./acm-operator/kustomization.yaml
+			kubectl apply -k ./acm-operator
+		else 
+			oc project $ACM_NAMESPACE
+			kubectl apply -f ./acm-operator/subscription.yaml
+		fi	
 		
-	# install acm operator 	
-	if [ $CSV_VERSION == $STARTING_CSV_VERSION ]; then
-		printf "Set subscription channel ...\n"
-		CHANNEL=`echo $1 | awk -F'[v.]' '{print $2"."$3}'`
-		sed -i "s/^\(\s*channel\s*:\s*\).*/\1release-$CHANNEL/" ./acm-operator/subscription.yaml
+		# wait for acm operator install completed
+		waitForInstallPlan $1
+		printf "Approve install plan...\n"
+		oc patch installplan `oc get installplan | grep $1 | cut -d' ' -f1` --type=merge -p '{"spec": {"approved": true} }'
+		waitForPod "multiclusterhub-operator" "acm-custom-registry" "1/1"
+		waitForPod "multicluster-operators-application" "" "4/4"	
+		waitForCSV $1
 		
-		printf "Switch subscription approval plan to manual ...\n"
-		sed -i "s/^\(\s*installPlanApproval\s*:\s*\).*/\1Manual/" ./acm-operator/subscription.yaml
-		
-		printf "Set subscrition starting version ...\n"
-		LINE_COUNT=`awk '/startingCSV/{ print NR; exit }' ./acm-operator/subscription.yaml | wc -l`
-		if [ $LINE_COUNT -lt 1 ]; then
-			sed -i "/sourceNamespace/a\ \ startingCSV: advanced-cluster-management.$1" ./acm-operator/subscription.yaml
-		else
-			sed -i "s/advanced-cluster-management.v.*/advanced-cluster-management.$1/g" ./acm-operator/subscription.yaml
+		# create mch 
+		if [ $(oc get mch -o name| wc -l) -lt 1 ]; then
+			printf "\nCreate MCH instance ...\n"
+			sed -i 's|^\(\s*"mch-imageRepository"\s*:\s*\).*|\1"quay.io:443/acm-d"|' ./multiclusterhub/example-multiclusterhub-cr.yaml
+			kubectl apply -f ./multiclusterhub/example-multiclusterhub-cr.yaml
 		fi
 		
-		printf 'Apply preregs ...\n'
-		kubectl apply --openapi-patch=true -k prereqs/
-		oc project $ACM_NAMESPACE
-				
-		printf "\nInstall acm operator ...\n"
-		sed -i 's|^\(\s*newName\s*:\s*\).*|\1quay.io:443/acm-d/acm-custom-registry|' ./acm-operator/kustomization.yaml
-		sed -i "s/^\(\s*newTag\s*:\s*\).*/\1$BUILD/" ./acm-operator/kustomization.yaml
-		kubectl apply -k ./acm-operator
-	else 
-	    oc project $ACM_NAMESPACE
-		kubectl apply -f ./acm-operator/subscription.yaml
-	fi	
+		# wait for install/upgrade completed
+		waitForMCHReleases
+		waitForHelmReleases
+		waitForAllPods
+			
+		# increase upgraded-to csv version
+		getNextInstallVersion
 	
-	# wait for acm operator install completed
-	waitForInstallPlan $1
-	printf "Approve install plan...\n"
-	oc patch installplan `oc get installplan | grep $1 | cut -d' ' -f1` --type=merge -p '{"spec": {"approved": true} }'
-	waitForPod "multiclusterhub-operator" "acm-custom-registry" "1/1"
-	waitForPod "multicluster-operators-application" "" "4/4"	
-	waitForCSV $1
-	
-	# create mch 
-	if [ $(oc get mch -o name| wc -l) -lt 1 ]; then
-		printf "\nCreate MCH instance ...\n"
-		sed -i 's|^\(\s*"mch-imageRepository"\s*:\s*\).*|\1"quay.io:443/acm-d"|' ./multiclusterhub/example-multiclusterhub-cr.yaml
-		kubectl apply -f ./multiclusterhub/example-multiclusterhub-cr.yaml
 	fi
-	
-	# wait for install/upgrade completed
-	waitForMCHReleases
-	waitForHelmReleases
-	waitForAllPods
-		
-	# increase upgraded-to csv version
-	getNextInstallVersion
-	
 	printf "Install/upgrade Completed\n"
 }
 
