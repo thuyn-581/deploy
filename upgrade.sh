@@ -11,20 +11,24 @@ PACKAGEMANIFEST_CSVS=`oc get packagemanifest advanced-cluster-management -n ${AC
 function uninstallHub() {
 	printf "UNINSTALL HUB\nDeleting MCH ...\n"
 	echo "DESTROY" | ./clean-clusters.sh
+	bma-namespaces=`oc get baremetalasset --all-namespaces | awk '!a[$1]++ { if(NR>1) print $1 }'`
+	for ns in $bma-namespaces; do 
+			oc delete baremetalasset --all -n $ns
+	done
 	kubectl delete mco --all
 	kubectl delete mch --all
 	echo 'Sleeping for 200 seconds to allow resources to finalize ...'
 	sleep 200	
 	./acm-operator/uninstall.sh	
-	sleep 10
+	sleep 30
 	./hack/nuke.sh
 
 	# delete remaining resources if any
-	oc delete mch --all -n $ACM_NAMESPACE
+	oc project $ACM_NAMESPACE
 	helm ls --namespace $ACM_NAMESPACE | cut -f 1 | tail -n +2 | xargs -n 1 helm delete --namespace $ACM_NAMESPACE
 	oc delete apiservice v1.admission.cluster.open-cluster-management.io v1beta1.webhook.certmanager.k8s.io
 	oc delete clusterimageset --all
-	oc delete configmap -n $ACM_NAMESPACE cert-manager-controller cert-manager-cainjector-leader-election cert-manager-cainjector-leader-election-core
+	oc delete configmap cert-manager-controller cert-manager-cainjector-leader-election cert-manager-cainjector-leader-election-core
 	oc delete consolelink acm-console-link
 	oc delete crd klusterletaddonconfigs.agent.open-cluster-management.io placementbindings.policy.open-cluster-management.io policies.policy.open-cluster-management.io userpreferences.console.open-cluster-management.io searchservices.search.acm.com
 	oc delete mutatingwebhookconfiguration cert-manager-webhook

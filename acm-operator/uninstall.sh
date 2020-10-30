@@ -5,7 +5,7 @@ ocm_namespace="open-cluster-management"
 oc project $ocm_namespace
 
 operator_subscription="acm-operator-subscription"
-operator_csv="advanced-cluster-management.v1.0.0"
+operator_csv="advanced-cluster-management.v2.1.0"
 custom_catalog_source="acm-custom-registry"
 custom_registry_service="acm-custom-registry"
 custom_registry_deployment="acm-custom-registry"
