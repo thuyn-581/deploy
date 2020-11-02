@@ -16,12 +16,10 @@ function uninstallHub() {
 			oc delete baremetalasset --all -n $ns
 	done
 	kubectl delete mco --all
-	kubectl delete mch --all
-	echo 'Sleeping for 200 seconds to allow resources to finalize ...'
-	sleep 200	
-	/home/root/acm-deploy/acm-operator/uninstall.sh	
-	sleep 30
-	/home/root/acm-deploy/hack/nuke.sh
+	echo | ./uninstall.sh
+	sleep 20
+	echo | ./hack/nuke.sh
+
 
 	# delete remaining resources if any
 	oc project $ACM_NAMESPACE
@@ -36,7 +34,7 @@ function uninstallHub() {
 	oc delete rolebinding -n kube-system cert-manager-webhook-webhook-authentication-reader
 	oc delete scc kui-proxy-scc
 	oc delete validatingwebhookconfiguration cert-manager-webhook
-	sleep 20
+	sleep 100
 }
 
 function waitForInstallPlan() {
@@ -270,8 +268,8 @@ function getNextInstallVersion(){
 
 #------------- main -------------
 # uninstall if set
-mch_count=`oc get mch -n $ACM_NAMESPACE | wc -l`
-if [ $CLEANUP_INCLUDED != 'false' ] && [ $mch_count -gt 0 ]; then 
+sub_count=`oc get sub | wc -l`
+if [ $CLEANUP_INCLUDED != 'false' ] && [ $sub_count -gt 0 ]; then 
 	uninstallHub 
 fi
 # install base version
