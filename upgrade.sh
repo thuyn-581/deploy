@@ -11,7 +11,7 @@ PACKAGEMANIFEST_CSVS=`oc get packagemanifest advanced-cluster-management -n ${AC
 function uninstallHub() {
 	printf "UNINSTALL HUB\nDeleting MCH ...\n"
 	echo "DESTROY" | ./clean-clusters.sh
-	bma-namespaces=`oc get baremetalasset --all-namespaces | awk '!a[$1]++ { if(NR>1) print $1 }'`
+	bma-namespaces=`oc get baremetalasset --all-namespaces --ignore-not-found| awk '!a[$1]++ { if(NR>1) print $1 }'`
 	for ns in $bma-namespaces; do 
 			oc delete baremetalasset --all -n $ns
 	done
@@ -22,7 +22,7 @@ function uninstallHub() {
 
 
 	# delete remaining resources if any
-	oc project $ACM_NAMESPACE
+	#oc project $ACM_NAMESPACE
 	helm ls --namespace $ACM_NAMESPACE | cut -f 1 | tail -n +2 | xargs -n 1 helm delete --namespace $ACM_NAMESPACE
 	oc delete apiservice v1.admission.cluster.open-cluster-management.io v1beta1.webhook.certmanager.k8s.io
 	oc delete clusterimageset --all
@@ -268,20 +268,21 @@ function getNextInstallVersion(){
 
 #------------- main -------------
 # uninstall if set
-sub_count=`oc get sub | wc -l`
+oc project $ACM_NAMESPACE
+sub_count=`oc get sub -n $ACM_NAMESPACE | wc -l`
 if [ $CLEANUP_INCLUDED != 'false' ] && [ $sub_count -gt 0 ]; then 
 	uninstallHub 
 fi
 # install base version
 if [ $UPGRADE_ONLY != 'true' ]; then
+	printf "\nInstall base version $STARTING_CSV_VERSION"	
+	installHub $STARTING_CSV_VERSION
   if [ $INGRESS_CERT_ENABLED == 'true' ]; then
 		printf "\nCreate custom CA configmap in $ACM_NAMESPACE"	
 		oc create configmap custom-ca \
       --from-file=ca-bundle.crt=$CERT_DIR/*.$INGRESS_DOMAIN.crt \
       -n $ACM_NAMESPACE
-	fi
-	printf "\nInstall base version $STARTING_CSV_VERSION"	
-	installHub $STARTING_CSV_VERSION
+	fi	
 else
 	getNextInstallVersion
 	
