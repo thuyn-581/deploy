@@ -257,7 +257,8 @@ function getNextInstallVersion(){
 	CURR_CHANNEL=`echo ${CURR_CSV_NAME#*.} | awk -F'[v.]' '{print $2"."$3}'`
 
 	if [[ "$PACKAGEMANIFEST_CSVS" == *"$CURR_CSV_NAME"* ]]; then
-		echo -n "Latest version of channel $CURR_CHANNEL"
+		echo -n "Latest version of channel $CURR_CHANNEL\n"
+		TOTAL_POD_COUNT=56
 		CHANNEL=`echo $CURR_CHANNEL | awk -F. -v OFS=. '{$NF++;print}'`
 		sed -i "s/^\(\s*channel\s*:\s*\).*/\1release-$CHANNEL/" ./acm-operator/subscription.yaml
 		CSV_VERSION=`echo v$CHANNEL".0"`
