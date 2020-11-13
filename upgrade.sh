@@ -40,7 +40,7 @@ function uninstallHub() {
 function waitForInstallPlan() {
     version=$1
     for i in `seq 1 20`; do
-        oc get installplan | grep "$version"
+        oc get installplan -n ${ACM_NAMESPACE} | grep "$version"
         if [ $? -eq 0 ]; then
           break
         fi
@@ -109,7 +109,7 @@ function waitForAllPods() {
 function waitForMCHReleases() {
     for i in {1..10}; do
 		sleep 30
-        numHelm=`helm ls | grep deployed | wc -l`
+        numHelm=`helm ls -n ${ACM_NAMESPACE} | grep deployed | wc -l`
         if [ $numHelm -ge 11 ] ; then 
             echo 'All Helm releases installed'
             helm ls
@@ -120,13 +120,13 @@ function waitForMCHReleases() {
 }
 
 function waitForHelmReleases() {
-	helmreleases=`oc get helmreleases | awk '{ if(NR>1) print $1 }'`
+	helmreleases=`oc get helmreleases -n ${ACM_NAMESPACE} | awk '{ if(NR>1) print $1 }'`
 	expectedReason=$([ "$UPGRADE_ONLY" == true ] && echo "UpgradeSuccessful" || echo "InstallSuccessful")
     for i in {1..10}; do
 	    echo 'waiting for helm releases status'
 		sleep 30
 		for helm in $helmreleases; do  	
-			reason=`oc get helmrelease $helm -o json | jq -r '.status.conditions[].reason | select(.)'`
+			reason=`oc get helmrelease -n ${ACM_NAMESPACE} $helm -o json | jq -r '.status.conditions[].reason | select(.)'`
 			printf "$helm - $reason\n"
 			if [[ -z "$reason" ]]; then
 				continue
@@ -143,7 +143,7 @@ function waitForCSV() {
     version=$1
     for i in `seq 1 5`; do
 		echo 'waiting for csv to show'
-        oc get csv advanced-cluster-management.$version | grep Succeeded 
+        oc get csv -n ${ACM_NAMESPACE} advanced-cluster-management.$version | grep Succeeded 
         if [ $? -eq 0 ]; then
           break
         fi
@@ -159,10 +159,10 @@ function validateChartVersions() {
 	
 	# compare chart versions
 	printf "\nValidate installed chart versions ...\n"
-	helmreleases=`oc get helmrelease | awk '{ if(NR>1) print $1 }'`
+	helmreleases=`oc get helmrelease -n ${ACM_NAMESPACE} | awk '{ if(NR>1) print $1 }'`
 	for helmrelease in $helmreleases; do 
 		chart_name=`echo ${helmrelease%-*}`
-		chart_version=`oc get helmrelease $helmrelease -o=jsonpath='{.repo.version}'`
+		chart_version=`oc get helmrelease -n ${ACM_NAMESPACE} $helmrelease -o=jsonpath='{.repo.version}'`
 		expect_version=`yq .entries.\"$chart_name\"[].version $TMP_DIR/multicloudhub-repo-$pkg_name/multiclusterhub/charts/index.yaml | tr -d '"'`
 		if [[ $chart_version != $expect_version ]]; then
 			printf "Mismatched installed version of $chart_name -- expected $expect_version - actual $chart_version"
@@ -175,9 +175,9 @@ function validateChartVersions() {
 
 function validateDeployedImages() {
 	printf "\nValidate deployed images ...\n"
-	deploys=`oc get deploy -o name |grep -v acm-custom-registry`
+	deploys=`oc get deploy -n ${ACM_NAMESPACE} -o name |grep -v acm-custom-registry`
 	for deploy in $deploys; do
-		deployed_image=`oc get  -ojsonpath='{.spec.template.spec.containers[0].image}' $deploy | awk -F'/' '{print $3}'`
+		deployed_image=`oc get -n ${ACM_NAMESPACE} -ojsonpath='{.spec.template.spec.containers[0].image}' $deploy | awk -F'/' '{print $3}'`
 		if [ $(oc get packagemanifest -n $ACM_NAMESPACE advanced-cluster-management -oyaml | grep "$deploy_image" | wc -l) -lt 1 ]; then
 			printf "Deployed image $deployed_image NOT found in acm packagemanifest"
 			break;
@@ -228,7 +228,7 @@ function installHub() {
 		# wait for acm operator install completed
 		waitForInstallPlan $1
 		printf "Approve install plan...\n"
-		oc patch installplan `oc get installplan | grep $1 | cut -d' ' -f1` --type=merge -p '{"spec": {"approved": true} }'
+		oc patch installplan `oc get installplan -n $ACM_NAMESPACE | grep $1 | cut -d' ' -f1` --type=merge -p '{"spec": {"approved": true} }'
 		waitForPod "multiclusterhub-operator" "acm-custom-registry" "1/1"
 		waitForPod "multicluster-operators-application" "" "4/4"	
 		waitForCSV $1
@@ -286,7 +286,6 @@ if [ $UPGRADE_ONLY != 'true' ]; then
 	fi	
 else
 	getNextInstallVersion
-	
 	v1=$(echo ${CSV_VERSION#*v})
 	v2=$(echo `printf "${BUILD%%-*}"`| awk -F. -v OFS=. '{$NF;print}')
 	while [ "$v1" = "`echo -e "$v1\n$v2" | sort -V | head -n1`" ]
