@@ -1,10 +1,10 @@
 #!/bin/bash 
 # Put this script into deploy folder, make sure you have prereq setup with correct pull-secret (acm-d)
-TOTAL_POD_COUNT=55 # 33 for basic 55 for high
+#TOTAL_POD_COUNT=55 # 33 for basic 55 for high
 TMP_DIR=$HOME/tmp
 
-BASE_CHANNEL=`echo $STARTING_CSV_VERSION | awk -F'[v.]' '{print $2"."$3}'`
-UPGRADE_CHANNEL=`echo $BUILD | awk -F'.' '{print $1"."$2}'`
+#BASE_CHANNEL=`echo $STARTING_CSV_VERSION | awk -F'[v.]' '{print $2"."$3}'`
+#UPGRADE_CHANNEL=`echo $BUILD | awk -F'.' '{print $1"."$2}'`
 
 PACKAGEMANIFEST_CSVS=`oc get packagemanifest advanced-cluster-management -n ${ACM_NAMESPACE} -o=jsonpath='{.status.channels[*].currentCSV}'`
 
@@ -22,10 +22,7 @@ function uninstallHub() {
 	kubectl delete -k ./acm-operator
 	kubectl delete csv --all
 	kubectl delete -k ./prereqs
-	#echo | ./acm-operator/uninstall.sh
 	sleep 20
-	#echo | ./hack/nuke.sh
-
 
 	# delete remaining resources if any
 	oc project $ACM_NAMESPACE
@@ -90,6 +87,16 @@ function waitForPod() {
 
 function waitForAllPods() {
 	COMPLETE=1
+	rel_channel=`oc get sub acm-operator-subscription -n $ACM_NAMESPACE -o jsonpath='{.spec.channel}' | cut -d "-" -f2`
+	case $rel_channel in
+	[2.0]*)
+		TOTAL_POD_COUNT=55;;
+	[2.1]*)
+		TOTAL_POD_COUNT=56;;
+	[2.2]*)
+		TOTAL_POD_COUNT=56;;
+	esac
+	
 	for i in {1..20}; do	
 		sleep 30
 		whatsLeft=`oc -n ${ACM_NAMESPACE} get pods | grep -v -e "Completed" -e "1/1     Running" -e "2/2     Running" -e "3/3     Running" -e "4/4     Running" -e "READY   STATUS" | wc -l`
@@ -265,7 +272,7 @@ function getNextInstallVersion(){
 
 	if [[ "$PACKAGEMANIFEST_CSVS" == *"$CURR_CSV_NAME"* ]]; then
 		echo -n "Latest version of channel $CURR_CHANNEL\n"
-		TOTAL_POD_COUNT=56
+		#TOTAL_POD_COUNT=56
 		CHANNEL=`echo $CURR_CHANNEL | awk -F. -v OFS=. '{$NF++;print}'`
 		sed -i "s/^\(\s*channel\s*:\s*\).*/\1release-$CHANNEL/" ./acm-operator/subscription.yaml
 		CSV_VERSION=`echo v$CHANNEL".0"`
