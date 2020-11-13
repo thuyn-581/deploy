@@ -9,20 +9,26 @@ UPGRADE_CHANNEL=`echo $BUILD | awk -F'.' '{print $1"."$2}'`
 PACKAGEMANIFEST_CSVS=`oc get packagemanifest advanced-cluster-management -n ${ACM_NAMESPACE} -o=jsonpath='{.status.channels[*].currentCSV}'`
 
 function uninstallHub() {
-	printf "UNINSTALL HUB\nDeleting MCH ...\n"
+	printf "UNINSTALL HUB\n"
 	echo "DESTROY" | ./clean-clusters.sh
 	bma-namespaces=`oc get baremetalasset --all-namespaces --ignore-not-found| awk '!a[$1]++ { if(NR>1) print $1 }'`
 	for ns in $bma-namespaces; do 
 			oc delete baremetalasset --all -n $ns
 	done
+	oc project $ACM_NAMESPACE
 	kubectl delete mco --all
-	echo | ./uninstall.sh
+	kubectl delete mch --all
+	sleep 200
+	kubectl delete -k ./acm-operator
+	kubectl delete csv --all
+	kubectl delete -k ./prereqs
+	#echo | ./acm-operator/uninstall.sh
 	sleep 20
-	echo | ./hack/nuke.sh
+	#echo | ./hack/nuke.sh
 
 
 	# delete remaining resources if any
-	#oc project $ACM_NAMESPACE
+	oc project $ACM_NAMESPACE
 	helm ls --namespace $ACM_NAMESPACE | cut -f 1 | tail -n +2 | xargs -n 1 helm delete --namespace $ACM_NAMESPACE
 	oc delete apiservice v1.admission.cluster.open-cluster-management.io v1beta1.webhook.certmanager.k8s.io
 	oc delete clusterimageset --all
