@@ -237,6 +237,7 @@ function installHub() {
 		if [ $(oc get mch -o name| wc -l) -lt 1 ]; then
 			printf "\nCreate MCH instance ...\n"
 			sed -i 's|^\(\s*"mch-imageRepository"\s*:\s*\).*|\1"quay.io:443/acm-d"|' ./multiclusterhub/example-multiclusterhub-cr.yaml
+			sed -i "s/^\(\s*namespace\s*:\s*\).*/\1$ACM_NAMESPACE/" ./multiclusterhub/example-multiclusterhub-cr.yaml
 			kubectl apply -f ./multiclusterhub/example-multiclusterhub-cr.yaml
 		fi
 		
