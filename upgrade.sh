@@ -89,11 +89,11 @@ function waitForAllPods() {
 	COMPLETE=1
 	rel_channel=`oc get sub acm-operator-subscription -n $ACM_NAMESPACE -o jsonpath='{.spec.channel}' | cut -d "-" -f2`
 	case $rel_channel in
-	[2.0]*)
+	2.0*)
 		TOTAL_POD_COUNT=55;;
-	[2.1]*)
+	2.1*)
 		TOTAL_POD_COUNT=56;;
-	[2.2]*)
+	2.2*)
 		TOTAL_POD_COUNT=56;;
 	esac
 	
