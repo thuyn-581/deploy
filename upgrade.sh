@@ -128,7 +128,7 @@ function waitForMCHReleases() {
             helm ls
             break 
         fi
-        echo 'waiting for helm releases deployed'        
+        echo 'waiting for helm releases deployed...'        
     done
 }
 
@@ -161,6 +161,18 @@ function waitForCSV() {
           break
         fi
         sleep 30
+    done
+}
+
+function waitForLocalCluster() {
+    for i in {1..10}; do
+			sleep 30
+      podCount=`oc get pods -n open-cluster-management-agent-addon | grep Running | wc -l`
+      if [ $podCount -ge 7 ] ; then 
+        echo 'All addons installed'
+        break 
+      fi
+      echo 'waiting for agent addons deployed...'        
     done
 }
 
@@ -258,6 +270,11 @@ function installHub() {
 		waitForMCHReleases
 		waitForHelmReleases
 		waitForAllPods
+		
+		# wait for agent addon in >2.1
+		if [ "2.1.0" = "`echo -e "$CSV_VERSION\n2.1.0" | sort -V | head -n1`" ]; then
+			waitForLocalCluster
+		fi
 			
 		# increase upgraded-to csv version
 		getNextInstallVersion
