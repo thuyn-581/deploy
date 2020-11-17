@@ -272,7 +272,7 @@ function installHub() {
 		waitForAllPods
 		
 		# wait for agent addon in >2.1
-		if [ "2.1.0" = "`echo -e "$CSV_VERSION\n2.1.0" | sort -V | head -n1`" ]; then
+		if [ "2.1.0" = "`echo -e "`echo ${CSV_VERSION#*v}`\n2.1.0" | sort -V | head -n1`" ]; then
 			waitForLocalCluster
 		fi
 			
