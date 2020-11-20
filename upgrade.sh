@@ -13,11 +13,11 @@ function uninstallHub() {
 	echo "DESTROY" | ./clean-clusters.sh
 	bma-namespaces=`oc get baremetalasset --all-namespaces --ignore-not-found| awk '!a[$1]++ { if(NR>1) print $1 }'`
 	for ns in $bma-namespaces; do 
-			oc delete baremetalasset --all -n $ns
+			oc delete baremetalasset --all -n $ns --ignore-not-found
 	done
 	oc project $ACM_NAMESPACE
-	kubectl delete mco --all
-	kubectl delete mch --all
+	kubectl delete mco --all --ignore-not-found
+	kubectl delete mch --all --ignore-not-found
 	sleep 200
 	kubectl delete -k ./acm-operator
 	kubectl delete csv --all
@@ -308,9 +308,9 @@ fi
 # install base version
 if [ $UPGRADE_ONLY != 'true' ]; then
 	printf "\nInstall base version $STARTING_CSV_VERSION"	
-  if [ "$INGRESS_CERT_ENABLED" == true ]; then
+  if [ $INGRESS_CERT_ENABLED == 'true' ]; then
 		printf "\nCreate custom CA configmap in $ACM_NAMESPACE"	
-		oc create ns $ACM_NAMESPACE 
+		kubectl apply -f prereqs/namespace.yaml 
 		oc create configmap custom-ca \
       --from-file=ca-bundle.crt=$CERT_DIR/*.$INGRESS_DOMAIN.crt \
       -n $ACM_NAMESPACE
