@@ -272,7 +272,7 @@ function installHub() {
 		waitForAllPods
 		
 		# wait for agent addon in >2.1
-		if [ "2.1.0" = "`echo -e "`echo ${CSV_VERSION#*v}`\n2.1.0" | sort -V | head -n1`" ]; then
+		if [ "2.1.0" = "`echo -e "$(echo ${CSV_VERSION#*v})\n2.1.0" | sort -V | head -n1`" ]; then
 			waitForLocalCluster
 		fi
 			
@@ -308,7 +308,7 @@ fi
 # install base version
 if [ $UPGRADE_ONLY != 'true' ]; then
 	printf "\nInstall base version $STARTING_CSV_VERSION"	
-  if [ $INGRESS_CERT_ENABLED == 'true' ]; then
+  if [ "$INGRESS_CERT_ENABLED" == true ]; then
 		printf "\nCreate custom CA configmap in $ACM_NAMESPACE"	
 		kubectl apply -f prereqs/namespace.yaml 
 		oc create configmap custom-ca \
