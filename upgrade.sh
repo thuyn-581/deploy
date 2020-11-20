@@ -239,8 +239,11 @@ function installHub() {
 			
 			printf 'Apply preregs ...\n'
 			kubectl apply --openapi-patch=true -k prereqs/
-			oc project $ACM_NAMESPACE
-					
+			oc project $ACM_NAMESPACE 
+			if [[ $INGRESS_DOMAIN != 'none' ]]; then
+				oc create configmap custom-ca --from-file=ca-bundle.crt=$CERT_DIR/*.$INGRESS_DOMAIN.crt
+			fi
+			
 			printf "\nInstall acm operator ...\n"
 			sed -i 's|^\(\s*newName\s*:\s*\).*|\1quay.io:443/acm-d/acm-custom-registry|' ./acm-operator/kustomization.yaml
 			sed -i "s/^\(\s*newTag\s*:\s*\).*/\1$BUILD/" ./acm-operator/kustomization.yaml
@@ -308,13 +311,13 @@ fi
 # install base version
 if [ $UPGRADE_ONLY != 'true' ]; then
 	printf "\nInstall base version $STARTING_CSV_VERSION"	
-  if [ "$INGRESS_CERT_ENABLED" == true ]; then
-		printf "\nCreate custom CA configmap in $ACM_NAMESPACE"	
-		kubectl apply -f prereqs/namespace.yaml 
-		oc create configmap custom-ca \
-      --from-file=ca-bundle.crt=$CERT_DIR/*.$INGRESS_DOMAIN.crt \
-      -n $ACM_NAMESPACE
-	fi
+  #if [ "$INGRESS_CERT_ENABLED" == true ]; then
+	#	printf "\nCreate custom CA configmap in $ACM_NAMESPACE"	
+	#	kubectl apply -f prereqs/namespace.yaml 
+	#	oc create configmap custom-ca \
+  #    --from-file=ca-bundle.crt=$CERT_DIR/*.$INGRESS_DOMAIN.crt \
+  #    -n $ACM_NAMESPACE
+	#fi
   installHub $STARTING_CSV_VERSION	
 else
 	getNextInstallVersion
