@@ -308,13 +308,15 @@ fi
 # install base version
 if [ $UPGRADE_ONLY != 'true' ]; then
 	printf "\nInstall base version $STARTING_CSV_VERSION"	
-	installHub $STARTING_CSV_VERSION
+	#installHub $STARTING_CSV_VERSION
   if [ $INGRESS_CERT_ENABLED == 'true' ]; then
 		printf "\nCreate custom CA configmap in $ACM_NAMESPACE"	
+		oc create ns $ACM_NAMESPACE
 		oc create configmap custom-ca \
       --from-file=ca-bundle.crt=$CERT_DIR/*.$INGRESS_DOMAIN.crt \
       -n $ACM_NAMESPACE
-	fi	
+	fi
+  installHub $STARTING_CSV_VERSION	
 else
 	getNextInstallVersion
 	v1=$(echo ${CSV_VERSION#*v})
