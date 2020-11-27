@@ -38,6 +38,9 @@ function uninstallHub() {
 	oc delete scc kui-proxy-scc
 	oc delete validatingwebhookconfiguration cert-manager-webhook
 	sleep 100
+	
+	./hack/nuke.sh
+	sleep 100
 }
 
 function waitForInstallPlan() {
@@ -311,13 +314,6 @@ fi
 # install base version
 if [ $UPGRADE_ONLY != 'true' ]; then
 	printf "\nInstall base version $STARTING_CSV_VERSION"	
-  #if [ "$INGRESS_CERT_ENABLED" == true ]; then
-	#	printf "\nCreate custom CA configmap in $ACM_NAMESPACE"	
-	#	kubectl apply -f prereqs/namespace.yaml 
-	#	oc create configmap custom-ca \
-  #    --from-file=ca-bundle.crt=$CERT_DIR/*.$INGRESS_DOMAIN.crt \
-  #    -n $ACM_NAMESPACE
-	#fi
   installHub $STARTING_CSV_VERSION	
 else
 	getNextInstallVersion
