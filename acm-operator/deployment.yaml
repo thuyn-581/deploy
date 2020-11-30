@@ -13,6 +13,7 @@ spec:
       labels:
         app: acm-custom-registry
     spec:
+      imagePullPolicy: Always
       containers:
       - name: acm-custom-registry
         image: acm-custom-registry:1.0.0
