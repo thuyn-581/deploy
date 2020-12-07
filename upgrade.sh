@@ -11,21 +11,21 @@ PACKAGEMANIFEST_CSVS=`oc get packagemanifest advanced-cluster-management -n ${AC
 function uninstallHub() {
 	printf "UNINSTALL HUB\n"
 	echo "DESTROY" | ./clean-clusters.sh
-	bma-namespaces=`oc get baremetalasset --all-namespaces --ignore-not-found| awk '!a[$1]++ { if(NR>1) print $1 }'`
+	bma-namespaces=`oc get baremetalasset --insecure-skip-tls-verify=true --all-namespaces --ignore-not-found| awk '!a[$1]++ { if(NR>1) print $1 }'`
 	for ns in $bma-namespaces; do 
-			oc delete baremetalasset --all -n $ns --ignore-not-found
+			oc delete baremetalasset --all -n $ns --ignore-not-found --insecure-skip-tls-verify=true
 	done
 	oc project $ACM_NAMESPACE
-	kubectl delete mco --all --ignore-not-found
-	kubectl delete mch --all --ignore-not-found
+	kubectl delete mco --all --ignore-not-found --insecure-skip-tls-verify=true
+	kubectl delete mch --all --ignore-not-found --insecure-skip-tls-verify=true
 	sleep 200
-	kubectl delete -k ./acm-operator
-	kubectl delete csv --all
-	kubectl delete -k ./prereqs
+	kubectl delete -k ./acm-operator --insecure-skip-tls-verify=true
+	kubectl delete csv --all --insecure-skip-tls-verify=true
+	kubectl delete -k ./prereqs --insecure-skip-tls-verify=true
 	sleep 20
 
 	# delete remaining resources if any
-	oc project $ACM_NAMESPACE
+	oc project $ACM_NAMESPACE --insecure-skip-tls-verify=true
 	helm ls --namespace $ACM_NAMESPACE | cut -f 1 | tail -n +2 | xargs -n 1 helm delete --namespace $ACM_NAMESPACE
 	oc delete apiservice v1.admission.cluster.open-cluster-management.io v1beta1.webhook.certmanager.k8s.io
 	oc delete clusterimageset --all
@@ -46,7 +46,7 @@ function uninstallHub() {
 function waitForInstallPlan() {
     version=$1
     for i in `seq 1 20`; do
-        oc get installplan -n ${ACM_NAMESPACE} | grep "$version"
+        oc get installplan -n ${ACM_NAMESPACE} --insecure-skip-tls-verify=true | grep "$version"
         if [ $? -eq 0 ]; then
           break
         fi
@@ -66,15 +66,15 @@ function waitForPod() {
         if [ $MINUTE -gt 240 ]; then
             echo "Timeout waiting for the ${podName}. Try cleaning up using the uninstall scripts before running again."
             echo "List of current pods:"
-            oc -n ${ACM_NAMESPACE} get pods
+            oc -n ${ACM_NAMESPACE} get pods --insecure-skip-tls-verify=true
             echo
             echo "You should see ${podName}, multiclusterhub-repo, and multicloud-operators-subscription pods"
             break
         fi
         if [ "$ignore" == "" ]; then
-            operatorPod=`oc -n ${ACM_NAMESPACE} get pods | grep ${podName}`
+            operatorPod=`oc -n ${ACM_NAMESPACE} get pods --insecure-skip-tls-verify=true | grep ${podName}`
         else
-            operatorPod=`oc -n ${ACM_NAMESPACE} get pods | grep ${podName} | grep -v ${ignore}`
+            operatorPod=`oc -n ${ACM_NAMESPACE} get pods --insecure-skip-tls-verify=true | grep ${podName} | grep -v ${ignore}`
         fi
         if [[ "$operatorPod" =~ "${running}     Running" ]]; then
             echo "* ${podName} is running"
@@ -90,20 +90,20 @@ function waitForPod() {
 
 function waitForAllPods() {
 	COMPLETE=1
-	rel_channel=`oc get sub acm-operator-subscription -n $ACM_NAMESPACE -o jsonpath='{.spec.channel}' | cut -d "-" -f2`
+	rel_channel=`oc --insecure-skip-tls-verify=true get sub acm-operator-subscription -n $ACM_NAMESPACE -o jsonpath='{.spec.channel}' | cut -d "-" -f2`
 	case $rel_channel in
 	2.0*)
 		TOTAL_POD_COUNT=55;;
 	2.1*)
 		TOTAL_POD_COUNT=56;;
 	2.2*)
-		TOTAL_POD_COUNT=56;;
+		TOTAL_POD_COUNT=58;;
 	esac
 	
 	for i in {1..20}; do	
 		sleep 30
-		whatsLeft=`oc -n ${ACM_NAMESPACE} get pods | grep -v -e "Completed" -e "1/1     Running" -e "2/2     Running" -e "3/3     Running" -e "4/4     Running" -e "READY   STATUS" | wc -l`
-		RUNNING_PODS=$(oc -n ${ACM_NAMESPACE} get pods | grep -v -e "Completed" | tail -n +2 | wc -l | tr -d '[:space:]')
+		whatsLeft=`oc -n ${ACM_NAMESPACE} get pods --insecure-skip-tls-verify=true | grep -v -e "Completed" -e "1/1     Running" -e "2/2     Running" -e "3/3     Running" -e "4/4     Running" -e "READY   STATUS" | wc -l`
+		RUNNING_PODS=$(oc -n ${ACM_NAMESPACE} get pods --insecure-skip-tls-verify=true| grep -v -e "Completed" | tail -n +2 | wc -l | tr -d '[:space:]')
 		if [ $RUNNING_PODS -eq ${TOTAL_POD_COUNT} ] && [ $whatsLeft -eq 0 ]; then
 			COMPLETE=0
 			break
@@ -114,9 +114,9 @@ function waitForAllPods() {
 	done		
 	if [ $COMPLETE -eq 1 ]; then
 		echo "At least one pod failed to start..."
-		oc -n ${ACM_NAMESPACE} get pods | grep -v -e "Completed" -e "1/1     Running" -e "2/2     Running" -e "3/3     Running" -e "4/4     Running"
+		oc -n ${ACM_NAMESPACE} get pods --insecure-skip-tls-verify=true| grep -v -e "Completed" -e "1/1     Running" -e "2/2     Running" -e "3/3     Running" -e "4/4     Running"
 	fi
-	CONSOLE_URL=`oc -n ${ACM_NAMESPACE} get routes multicloud-console -o jsonpath='{.status.ingress[0].host}' 2> /dev/null`
+	CONSOLE_URL=`oc -n ${ACM_NAMESPACE} --insecure-skip-tls-verify=true get routes multicloud-console -o jsonpath='{.status.ingress[0].host}' 2> /dev/null`
 	echo "#####"
 	echo "* Red Hat ACM URL: https://$CONSOLE_URL"
 	echo "#####"
@@ -142,7 +142,7 @@ function waitForHelmReleases() {
 	    echo 'waiting for helm releases status'
 		sleep 30
 		for helm in $helmreleases; do  	
-			reason=`oc get helmrelease -n ${ACM_NAMESPACE} $helm -o json | jq -r '.status.conditions[].reason | select(.)'`
+			reason=`oc --insecure-skip-tls-verify=true get helmrelease -n ${ACM_NAMESPACE} $helm -o json | jq -r '.status.conditions[].reason | select(.)'`
 			printf "$helm - $reason\n"
 			if [[ -z "$reason" ]]; then
 				continue
@@ -159,7 +159,7 @@ function waitForCSV() {
     version=$1
     for i in `seq 1 5`; do
 		echo 'waiting for csv to show'
-        oc get csv -n ${ACM_NAMESPACE} advanced-cluster-management.$version | grep Succeeded 
+        oc --insecure-skip-tls-verify=true get csv -n ${ACM_NAMESPACE} advanced-cluster-management.$version | grep Succeeded 
         if [ $? -eq 0 ]; then
           break
         fi
@@ -170,7 +170,7 @@ function waitForCSV() {
 function waitForLocalCluster() {
     for i in {1..10}; do
 			sleep 30
-      podCount=`oc get pods -n open-cluster-management-agent-addon | grep Running | wc -l`
+      podCount=`oc get pods -n open-cluster-management-agent-addon --insecure-skip-tls-verify=true | grep Running | wc -l`
       if [ $podCount -ge 7 ] ; then 
         echo 'All addons installed'
         break 
@@ -187,10 +187,10 @@ function validateChartVersions() {
 	
 	# compare chart versions
 	printf "\nValidate installed chart versions ...\n"
-	helmreleases=`oc get helmrelease -n ${ACM_NAMESPACE} | awk '{ if(NR>1) print $1 }'`
+	helmreleases=`oc get helmrelease -n ${ACM_NAMESPACE} --insecure-skip-tls-verify=true | awk '{ if(NR>1) print $1 }'`
 	for helmrelease in $helmreleases; do 
 		chart_name=`echo ${helmrelease%-*}`
-		chart_version=`oc get helmrelease -n ${ACM_NAMESPACE} $helmrelease -o=jsonpath='{.repo.version}'`
+		chart_version=`oc --insecure-skip-tls-verify=true get helmrelease -n ${ACM_NAMESPACE} $helmrelease -o=jsonpath='{.repo.version}'`
 		expect_version=`yq .entries.\"$chart_name\"[].version $TMP_DIR/multicloudhub-repo-$pkg_name/multiclusterhub/charts/index.yaml | tr -d '"'`
 		if [[ $chart_version != $expect_version ]]; then
 			printf "Mismatched installed version of $chart_name -- expected $expect_version - actual $chart_version"
@@ -203,10 +203,10 @@ function validateChartVersions() {
 
 function validateDeployedImages() {
 	printf "\nValidate deployed images ...\n"
-	deploys=`oc get deploy -n ${ACM_NAMESPACE} -o name |grep -v acm-custom-registry`
+	deploys=`oc get deploy -n ${ACM_NAMESPACE} -o name --insecure-skip-tls-verify=true |grep -v acm-custom-registry`
 	for deploy in $deploys; do
-		deployed_image=`oc get -n ${ACM_NAMESPACE} -ojsonpath='{.spec.template.spec.containers[0].image}' $deploy | awk -F'/' '{print $3}'`
-		if [ $(oc get packagemanifest -n $ACM_NAMESPACE advanced-cluster-management -oyaml | grep "$deploy_image" | wc -l) -lt 1 ]; then
+		deployed_image=`oc --insecure-skip-tls-verify=true get -n ${ACM_NAMESPACE} -ojsonpath='{.spec.template.spec.containers[0].image}' $deploy | awk -F'/' '{print $3}'`
+		if [ $(oc --insecure-skip-tls-verify=true get packagemanifest -n $ACM_NAMESPACE advanced-cluster-management -oyaml | grep "$deploy_image" | wc -l) -lt 1 ]; then
 			printf "Deployed image $deployed_image NOT found in acm packagemanifest"
 			break;
 		else 
@@ -241,35 +241,35 @@ function installHub() {
 			fi
 			
 			printf 'Apply preregs ...\n'
-			kubectl apply --openapi-patch=true -k prereqs/
-			oc project $ACM_NAMESPACE 
+			kubectl apply --openapi-patch=true -k prereqs/ --insecure-skip-tls-verify=true
+			oc project $ACM_NAMESPACE --insecure-skip-tls-verify=true
 			if [[ $INGRESS_DOMAIN != 'none' ]]; then
-				oc create configmap custom-ca --from-file=ca-bundle.crt=$CERT_DIR/*.$INGRESS_DOMAIN.crt
+				oc create configmap custom-ca --from-file=ca-bundle.crt=$CERT_DIR/*.$INGRESS_DOMAIN.crt --insecure-skip-tls-verify=true
 			fi
 			
 			printf "\nInstall acm operator ...\n"
 			sed -i 's|^\(\s*newName\s*:\s*\).*|\1quay.io:443/acm-d/acm-custom-registry|' ./acm-operator/kustomization.yaml
 			sed -i "s/^\(\s*newTag\s*:\s*\).*/\1$BUILD/" ./acm-operator/kustomization.yaml
-			kubectl apply -k ./acm-operator
+			kubectl apply -k ./acm-operator --insecure-skip-tls-verify=true
 		else 
 			oc project $ACM_NAMESPACE
-			kubectl apply -f ./acm-operator/subscription.yaml
+			kubectl apply -f ./acm-operator/subscription.yaml --insecure-skip-tls-verify=true
 		fi	
 		
 		# wait for acm operator install completed
 		waitForInstallPlan $1
 		printf "Approve install plan...\n"
-		oc patch installplan `oc get installplan -n $ACM_NAMESPACE | grep $1 | cut -d' ' -f1` --type=merge -p '{"spec": {"approved": true} }'
+		oc --insecure-skip-tls-verify=true patch installplan `oc get installplan -n $ACM_NAMESPACE | grep $1 | cut -d' ' -f1` --type=merge -p '{"spec": {"approved": true} }'
 		waitForPod "multiclusterhub-operator" "acm-custom-registry" "1/1"
 		waitForPod "multicluster-operators-application" "" "4/4"	
 		waitForCSV $1
 		
 		# create mch 
-		if [ $(oc get mch -o name| wc -l) -lt 1 ]; then
+		if [ $(oc --insecure-skip-tls-verify=true get mch -o name| wc -l) -lt 1 ]; then
 			printf "\nCreate MCH instance ...\n"
 			sed -i 's|^\(\s*"mch-imageRepository"\s*:\s*\).*|\1"quay.io:443/acm-d"|' ./multiclusterhub/example-multiclusterhub-cr.yaml
 			sed -i "s/^\(\s*namespace\s*:\s*\).*/\1$ACM_NAMESPACE/" ./multiclusterhub/example-multiclusterhub-cr.yaml
-			kubectl apply -f ./multiclusterhub/example-multiclusterhub-cr.yaml
+			kubectl apply -f ./multiclusterhub/example-multiclusterhub-cr.yaml --insecure-skip-tls-verify=true
 		fi
 		
 		# wait for install/upgrade completed
@@ -290,18 +290,19 @@ function installHub() {
 }
 
 function getNextInstallVersion(){
-	CURR_CSV_NAME=`oc get csv -o name| awk -F'[/]' '{print $2}'`
+	CURR_CSV_NAME=`oc get csv -o name --insecure-skip-tls-verify=true | awk -F'[/]' '{print $2}'`
 	CURR_CHANNEL=`echo ${CURR_CSV_NAME#*.} | awk -F'[v.]' '{print $2"."$3}'`
 
 	if [[ "$PACKAGEMANIFEST_CSVS" == *"$CURR_CSV_NAME"* ]]; then
 		echo -n "Latest version of channel $CURR_CHANNEL\n"
-		#TOTAL_POD_COUNT=56
 		CHANNEL=`echo $CURR_CHANNEL | awk -F. -v OFS=. '{$NF++;print}'`
 		sed -i "s/^\(\s*channel\s*:\s*\).*/\1release-$CHANNEL/" ./acm-operator/subscription.yaml
-		CSV_VERSION=`echo v$CHANNEL".0"`
+		#CSV_VERSION=`echo v$CHANNEL".0"`
+		CSV_VERSION=`echo $BUILD | awk -F- '{print $1}'`
 	else
 		CSV_VERSION=`echo ${CURR_CSV_NAME#*.} | awk -F. -v OFS=. '{$NF++;print}'`
 	fi
+		
 }
 
 #------------- main -------------
