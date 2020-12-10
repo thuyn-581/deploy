@@ -298,7 +298,7 @@ function getNextInstallVersion(){
 		CHANNEL=`echo $CURR_CHANNEL | awk -F. -v OFS=. '{$NF++;print}'`
 		sed -i "s/^\(\s*channel\s*:\s*\).*/\1release-$CHANNEL/" ./acm-operator/subscription.yaml
 		#CSV_VERSION=`echo v$CHANNEL".0"`
-		CSV_VERSION=`echo $BUILD | awk -F- '{print $1}'`
+		CSV_VERSION=`echo v$BUILD | awk -F- '{print $1}'`
 	else
 		CSV_VERSION=`echo ${CURR_CSV_NAME#*.} | awk -F. -v OFS=. '{$NF++;print}'`
 	fi
