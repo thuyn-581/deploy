@@ -191,12 +191,13 @@ function validateChartVersions() {
 	for helmrelease in $helmreleases; do 
 		chart_name=`echo ${helmrelease%-*}`
 		chart_version=`oc --insecure-skip-tls-verify=true get helmrelease -n ${ACM_NAMESPACE} $helmrelease -o=jsonpath='{.repo.version}'`
+		chart_revision=`helm status -n ${ACM_NAMESPACE} | grep REVISION`
 		expect_version=`yq .entries.\"$chart_name\"[].version $TMP_DIR/multicloudhub-repo-$pkg_name/multiclusterhub/charts/index.yaml | tr -d '"'`
 		if [[ $chart_version != $expect_version ]]; then
 			printf "Mismatched installed version of $chart_name -- expected $expect_version - actual $chart_version"
 			break
 		else	
-			printf "$chart_name-$chart_version -- OK\n"
+			printf "$chart_name-$chart_version-$chart_revision -- OK\n"
 		fi
 	done
 }
@@ -333,5 +334,5 @@ else
 	done
 	sleep 10
 	validateChartVersions
-	validateDeployedImages
+	#validateDeployedImages
 fi
