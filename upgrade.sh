@@ -320,7 +320,7 @@ else
 	getNextInstallVersion
 	v1=$(echo ${CSV_VERSION#*v})
 	v2=$(echo `printf "${BUILD%%-*}"`| awk -F. -v OFS=. '{$NF;print}')
-	while [ "$v1" = "`echo -e "$v1\n$v2" | sort -V | head -n1`" ]
+	while [ "$v1" != "`echo -e "$v1\n$v2" | sort -V | tail -n1`" ]
 	do
 		#upgrade
 		printf "\nUpgrade Hub to $CSV_VERSION"
