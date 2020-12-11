@@ -292,17 +292,21 @@ function installHub() {
 function getNextInstallVersion(){
 	CURR_CSV_NAME=`oc get csv -o name --insecure-skip-tls-verify=true | awk -F'[/]' '{print $2}'`
 	CURR_CHANNEL=`echo ${CURR_CSV_NAME#*.} | awk -F'[v.]' '{print $2"."$3}'`
-
-	if [[ "$PACKAGEMANIFEST_CSVS" == *"$CURR_CSV_NAME"* ]]; then
-		echo -n "Latest version of channel $CURR_CHANNEL\n"
-		CHANNEL=`echo $CURR_CHANNEL | awk -F. -v OFS=. '{$NF++;print}'`
-		sed -i "s/^\(\s*channel\s*:\s*\).*/\1release-$CHANNEL/" ./acm-operator/subscription.yaml
-		#CSV_VERSION=`echo v$CHANNEL".0"`
-		CSV_VERSION=`echo v$BUILD | awk -F- '{print $1}'`
+	CSVS=($PACKAGEMANIFEST_CSVS)
+	
+	if [[ "$CURR_CSV_NAME" == "${CSVS[-1]}" ]]; then
+		CSV_VERSION='N/A'
 	else
-		CSV_VERSION=`echo ${CURR_CSV_NAME#*.} | awk -F. -v OFS=. '{$NF++;print}'`
-	fi
-		
+		if [[ "$PACKAGEMANIFEST_CSVS" == *"$CURR_CSV_NAME"* ]]; then
+			echo -n "Latest version of channel $CURR_CHANNEL\n"
+			CHANNEL=`echo $CURR_CHANNEL | awk -F. -v OFS=. '{$NF++;print}'`
+			sed -i "s/^\(\s*channel\s*:\s*\).*/\1release-$CHANNEL/" ./acm-operator/subscription.yaml
+			#CSV_VERSION=`echo v$CHANNEL".0"`
+			CSV_VERSION=`echo v$BUILD | awk -F- '{print $1}'`
+		else
+			CSV_VERSION=`echo ${CURR_CSV_NAME#*.} | awk -F. -v OFS=. '{$NF++;print}'`
+		fi
+	fi	
 }
 
 #------------- main -------------
@@ -320,7 +324,7 @@ else
 	getNextInstallVersion
 	v1=$(echo ${CSV_VERSION#*v})
 	v2=$(echo `printf "${BUILD%%-*}"`| awk -F. -v OFS=. '{$NF;print}')
-	while [ "$v1" != "`echo -e "$v1\n$v2" | sort -V | tail -n1`" ]
+	while [ "$v1" = "`echo -e "$v1\n$v2" | sort -V | head -n1`" ]
 	do
 		#upgrade
 		printf "\nUpgrade Hub to $CSV_VERSION"
