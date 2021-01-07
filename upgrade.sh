@@ -97,7 +97,7 @@ function waitForAllPods() {
 	2.1*)
 		TOTAL_POD_COUNT=56;;
 	2.2*)
-		TOTAL_POD_COUNT=58;;
+		TOTAL_POD_COUNT=61;;
 	esac
 	
 	for i in {1..20}; do	
