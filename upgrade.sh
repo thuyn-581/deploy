@@ -1,42 +1,39 @@
 #!/bin/bash 
 # Put this script into deploy folder, make sure you have prereq setup with correct pull-secret (acm-d)
-#TOTAL_POD_COUNT=55 # 33 for basic 55 for high
 TMP_DIR=$HOME/tmp
+KUBECTL_CMD="oc --insecure-skip-tls-verify=true"
+PACKAGEMANIFEST_CSVS=`$KUBECTL_CMD get packagemanifest advanced-cluster-management -n ${ACM_NAMESPACE} -o=jsonpath='{.status.channels[*].currentCSV}'`
 
-#BASE_CHANNEL=`echo $STARTING_CSV_VERSION | awk -F'[v.]' '{print $2"."$3}'`
-#UPGRADE_CHANNEL=`echo $BUILD | awk -F'.' '{print $1"."$2}'`
-
-PACKAGEMANIFEST_CSVS=`oc get packagemanifest advanced-cluster-management -n ${ACM_NAMESPACE} -o=jsonpath='{.status.channels[*].currentCSV}'`
 
 function uninstallHub() {
 	printf "UNINSTALL HUB\n"
 	echo "DESTROY" | ./clean-clusters.sh
-	bma-namespaces=`oc get baremetalasset --insecure-skip-tls-verify=true --all-namespaces --ignore-not-found| awk '!a[$1]++ { if(NR>1) print $1 }'`
-	for ns in $bma-namespaces; do 
-			oc delete baremetalasset --all -n $ns --ignore-not-found --insecure-skip-tls-verify=true
+	bma_namespaces=`$KUBECTL_CMD get baremetalasset  --all-namespaces --ignore-not-found| awk '!a[$1]++ { if(NR>1) print $1 }'`
+	for ns in $bma_namespaces; do 
+			$KUBECTL_CMD delete baremetalasset --all -n $ns --ignore-not-found 
 	done
-	oc project $ACM_NAMESPACE
-	kubectl delete mco --all --ignore-not-found --insecure-skip-tls-verify=true
-	kubectl delete mch --all --ignore-not-found --insecure-skip-tls-verify=true
+	$KUBECTL_CMD project $ACM_NAMESPACE
+	$KUBECTL_CMD delete mco --all --ignore-not-found 
+	$KUBECTL_CMD delete mch --all --ignore-not-found 
 	sleep 200
-	kubectl delete -k ./acm-operator --insecure-skip-tls-verify=true
-	kubectl delete csv --all --insecure-skip-tls-verify=true
-	kubectl delete -k ./prereqs --insecure-skip-tls-verify=true
+	$KUBECTL_CMD delete -k ./acm-operator 
+	$KUBECTL_CMD delete csv advanced-cluster-management.$STARTING_CSV_VERSION 
+	$KUBECTL_CMD delete -k ./prereqs 
 	sleep 20
 
 	# delete remaining resources if any
-	oc project $ACM_NAMESPACE --insecure-skip-tls-verify=true
+	$KUBECTL_CMD project $ACM_NAMESPACE 
 	helm ls --namespace $ACM_NAMESPACE | cut -f 1 | tail -n +2 | xargs -n 1 helm delete --namespace $ACM_NAMESPACE
-	oc delete apiservice v1.admission.cluster.open-cluster-management.io v1beta1.webhook.certmanager.k8s.io
-	oc delete clusterimageset --all
-	oc delete configmap cert-manager-controller cert-manager-cainjector-leader-election cert-manager-cainjector-leader-election-core
-	oc delete consolelink acm-console-link
-	oc delete crd klusterletaddonconfigs.agent.open-cluster-management.io placementbindings.policy.open-cluster-management.io policies.policy.open-cluster-management.io userpreferences.console.open-cluster-management.io searchservices.search.acm.com
-	oc delete mutatingwebhookconfiguration cert-manager-webhook
-	oc delete oauthclient multicloudingress
-	oc delete rolebinding -n kube-system cert-manager-webhook-webhook-authentication-reader
-	oc delete scc kui-proxy-scc
-	oc delete validatingwebhookconfiguration cert-manager-webhook
+	$KUBECTL_CMD delete apiservice v1.admission.cluster.open-cluster-management.io v1beta1.webhook.certmanager.k8s.io
+	$KUBECTL_CMD delete clusterimageset --all
+	$KUBECTL_CMD delete configmap cert-manager-controller cert-manager-cainjector-leader-election cert-manager-cainjector-leader-election-core
+	$KUBECTL_CMD delete consolelink acm-console-link
+	$KUBECTL_CMD delete crd klusterletaddonconfigs.agent.open-cluster-management.io placementbindings.policy.open-cluster-management.io policies.policy.open-cluster-management.io userpreferences.console.open-cluster-management.io searchservices.search.acm.com
+	$KUBECTL_CMD delete mutatingwebhookconfiguration cert-manager-webhook
+	$KUBECTL_CMD delete oauthclient multicloudingress
+	$KUBECTL_CMD delete rolebinding -n kube-system cert-manager-webhook-webhook-authentication-reader
+	$KUBECTL_CMD delete scc kui-proxy-scc
+	$KUBECTL_CMD delete validatingwebhookconfiguration cert-manager-webhook
 	sleep 100
 	
 	./hack/nuke.sh
@@ -46,7 +43,7 @@ function uninstallHub() {
 function waitForInstallPlan() {
     version=$1
     for i in `seq 1 20`; do
-        oc get installplan -n ${ACM_NAMESPACE} --insecure-skip-tls-verify=true | grep "$version"
+        $KUBECTL_CMD get installplan -n ${ACM_NAMESPACE}  | grep "$version"
         if [ $? -eq 0 ]; then
           break
         fi
@@ -66,15 +63,15 @@ function waitForPod() {
         if [ $MINUTE -gt 240 ]; then
             echo "Timeout waiting for the ${podName}. Try cleaning up using the uninstall scripts before running again."
             echo "List of current pods:"
-            oc -n ${ACM_NAMESPACE} get pods --insecure-skip-tls-verify=true
+            $KUBECTL_CMD -n ${ACM_NAMESPACE} get pods 
             echo
             echo "You should see ${podName}, multiclusterhub-repo, and multicloud-operators-subscription pods"
             break
         fi
         if [ "$ignore" == "" ]; then
-            operatorPod=`oc -n ${ACM_NAMESPACE} get pods --insecure-skip-tls-verify=true | grep ${podName}`
+            operatorPod=`$KUBECTL_CMD -n ${ACM_NAMESPACE} get pods  | grep ${podName}`
         else
-            operatorPod=`oc -n ${ACM_NAMESPACE} get pods --insecure-skip-tls-verify=true | grep ${podName} | grep -v ${ignore}`
+            operatorPod=`$KUBECTL_CMD -n ${ACM_NAMESPACE} get pods  | grep ${podName} | grep -v ${ignore}`
         fi
         if [[ "$operatorPod" =~ "${running}     Running" ]]; then
             echo "* ${podName} is running"
@@ -90,20 +87,21 @@ function waitForPod() {
 
 function waitForAllPods() {
 	COMPLETE=1
-	rel_channel=`oc --insecure-skip-tls-verify=true get sub acm-operator-subscription -n $ACM_NAMESPACE -o jsonpath='{.spec.channel}' | cut -d "-" -f2`
+	rel_channel=`$KUBECTL_CMD  get sub acm-operator-subscription -n $ACM_NAMESPACE -o jsonpath='{.spec.channel}' | cut -d "-" -f2`
 	case $rel_channel in
 	2.0*)
 		TOTAL_POD_COUNT=55;;
 	2.1*)
 		TOTAL_POD_COUNT=56;;
 	2.2*)
-		TOTAL_POD_COUNT=61;;
+		TOTAL_POD_COUNT=60;;
 	esac
 	
 	for i in {1..20}; do	
 		sleep 30
-		whatsLeft=`oc -n ${ACM_NAMESPACE} get pods --insecure-skip-tls-verify=true | grep -v -e "Completed" -e "1/1     Running" -e "2/2     Running" -e "3/3     Running" -e "4/4     Running" -e "READY   STATUS" | wc -l`
-		RUNNING_PODS=$(oc -n ${ACM_NAMESPACE} get pods --insecure-skip-tls-verify=true| grep -v -e "Completed" | tail -n +2 | wc -l | tr -d '[:space:]')
+		whatsLeft=`$KUBECTL_CMD -n ${ACM_NAMESPACE} get pods  | grep -v -e "Completed" -e "1/1     Running" -e "2/2     Running" -e "3/3     Running" -e "4/4     Running" -e "5/5     Running" -e "READY   STATUS" | wc -l`
+		#whatsLeft=`$KUBECTL_CMD -n ${ACM_NAMESPACE} get pods  | grep -v "Completed\|Running" | wc -l`
+		RUNNING_PODS=$($KUBECTL_CMD -n ${ACM_NAMESPACE} get pods | grep -v -e "Completed" | tail -n +2 | wc -l | tr -d '[:space:]')
 		if [ $RUNNING_PODS -eq ${TOTAL_POD_COUNT} ] && [ $whatsLeft -eq 0 ]; then
 			COMPLETE=0
 			break
@@ -114,9 +112,9 @@ function waitForAllPods() {
 	done		
 	if [ $COMPLETE -eq 1 ]; then
 		echo "At least one pod failed to start..."
-		oc -n ${ACM_NAMESPACE} get pods --insecure-skip-tls-verify=true| grep -v -e "Completed" -e "1/1     Running" -e "2/2     Running" -e "3/3     Running" -e "4/4     Running"
+		$KUBECTL_CMD -n ${ACM_NAMESPACE} get pods | grep -v -e "Completed" -e "1/1     Running" -e "2/2     Running" -e "3/3     Running" -e "4/4     Running" -e "5/5     Running"
 	fi
-	CONSOLE_URL=`oc -n ${ACM_NAMESPACE} --insecure-skip-tls-verify=true get routes multicloud-console -o jsonpath='{.status.ingress[0].host}' 2> /dev/null`
+	CONSOLE_URL=`$KUBECTL_CMD -n ${ACM_NAMESPACE}  get routes multicloud-console -o jsonpath='{.status.ingress[0].host}' 2> /dev/null`
 	echo "#####"
 	echo "* Red Hat ACM URL: https://$CONSOLE_URL"
 	echo "#####"
@@ -136,13 +134,13 @@ function waitForMCHReleases() {
 }
 
 function waitForHelmReleases() {
-	helmreleases=`oc get helmreleases -n ${ACM_NAMESPACE} | awk '{ if(NR>1) print $1 }'`
+	helmreleases=`$KUBECTL_CMD get helmreleases -n ${ACM_NAMESPACE} | awk '{ if(NR>1) print $1 }'`
 	expectedReason=$([ "$UPGRADE_ONLY" == true ] && echo "UpgradeSuccessful" || echo "InstallSuccessful")
     for i in {1..10}; do
 	    echo 'waiting for helm releases status'
 		sleep 30
 		for helm in $helmreleases; do  	
-			reason=`oc --insecure-skip-tls-verify=true get helmrelease -n ${ACM_NAMESPACE} $helm -o json | jq -r '.status.conditions[].reason | select(.)'`
+			reason=`$KUBECTL_CMD  get helmrelease -n ${ACM_NAMESPACE} $helm -o json | jq -r '.status.conditions[].reason | select(.)'`
 			printf "$helm - $reason\n"
 			if [[ -z "$reason" ]]; then
 				continue
@@ -159,7 +157,7 @@ function waitForCSV() {
     version=$1
     for i in `seq 1 5`; do
 		echo 'waiting for csv to show'
-        oc --insecure-skip-tls-verify=true get csv -n ${ACM_NAMESPACE} advanced-cluster-management.$version | grep Succeeded 
+        $KUBECTL_CMD  get csv -n ${ACM_NAMESPACE} advanced-cluster-management.$version | grep Succeeded 
         if [ $? -eq 0 ]; then
           break
         fi
@@ -167,10 +165,10 @@ function waitForCSV() {
     done
 }
 
-function waitForLocalCluster() {
+function waitForL$KUBECTL_CMDalCluster() {
     for i in {1..10}; do
 			sleep 30
-      podCount=`oc get pods -n open-cluster-management-agent-addon --insecure-skip-tls-verify=true | grep Running | wc -l`
+      podCount=`$KUBECTL_CMD get pods -n open-cluster-management-agent-addon  | grep Running | wc -l`
       if [ $podCount -ge 7 ] ; then 
         echo 'All addons installed'
         break 
@@ -187,10 +185,10 @@ function validateChartVersions() {
 	
 	# compare chart versions
 	printf "\nValidate installed chart versions ...\n"
-	helmreleases=`oc get helmrelease -n ${ACM_NAMESPACE} --insecure-skip-tls-verify=true | awk '{ if(NR>1) print $1 }'`
+	helmreleases=`$KUBECTL_CMD get helmrelease -n ${ACM_NAMESPACE}  | awk '{ if(NR>1) print $1 }'`
 	for helmrelease in $helmreleases; do 
 		chart_name=`echo ${helmrelease%-*}`
-		chart_version=`oc --insecure-skip-tls-verify=true get helmrelease -n ${ACM_NAMESPACE} $helmrelease -o=jsonpath='{.repo.version}'`
+		chart_version=`$KUBECTL_CMD  get helmrelease -n ${ACM_NAMESPACE} $helmrelease -o=jsonpath='{.repo.version}'`
 		chart_revision=`helm status $helmrelease -n ${ACM_NAMESPACE} | grep REVISION`
 		expect_version=`yq .entries.\"$chart_name\"[].version $TMP_DIR/multicloudhub-repo-$pkg_name/multiclusterhub/charts/index.yaml | tr -d '"'`
 		if [[ $chart_version != $expect_version ]]; then
@@ -204,10 +202,10 @@ function validateChartVersions() {
 
 function validateDeployedImages() {
 	printf "\nValidate deployed images ...\n"
-	deploys=`oc get deploy -n ${ACM_NAMESPACE} -o name --insecure-skip-tls-verify=true |grep -v acm-custom-registry`
+	deploys=`$KUBECTL_CMD get deploy -n ${ACM_NAMESPACE} -o name  |grep -v acm-custom-registry`
 	for deploy in $deploys; do
-		deployed_image=`oc --insecure-skip-tls-verify=true get -n ${ACM_NAMESPACE} -ojsonpath='{.spec.template.spec.containers[0].image}' $deploy | awk -F'/' '{print $3}'`
-		if [ $(oc --insecure-skip-tls-verify=true get packagemanifest -n $ACM_NAMESPACE advanced-cluster-management -oyaml | grep "$deploy_image" | wc -l) -lt 1 ]; then
+		deployed_image=`$KUBECTL_CMD  get -n ${ACM_NAMESPACE} -ojsonpath='{.spec.template.spec.containers[0].image}' $deploy | awk -F'/' '{print $3}'`
+		if [ $($KUBECTL_CMD  get packagemanifest -n $ACM_NAMESPACE advanced-cluster-management -oyaml | grep "$deploy_image" | wc -l) -lt 1 ]; then
 			printf "Deployed image $deployed_image NOT found in acm packagemanifest"
 			break;
 		else 
@@ -242,35 +240,41 @@ function installHub() {
 			fi
 			
 			printf 'Apply preregs ...\n'
-			kubectl apply --openapi-patch=true -k prereqs/ --insecure-skip-tls-verify=true
-			oc project $ACM_NAMESPACE --insecure-skip-tls-verify=true
+			kubectl apply --openapi-patch=true -k prereqs/ 
+			$KUBECTL_CMD project $ACM_NAMESPACE 
 			if [[ $INGRESS_DOMAIN != 'none' ]]; then
-				oc create configmap custom-ca --from-file=ca-bundle.crt=$CERT_DIR/*.$INGRESS_DOMAIN.crt --insecure-skip-tls-verify=true
+				$KUBECTL_CMD create configmap custom-ca --from-file=ca-bundle.crt=$CERT_DIR/*.$INGRESS_DOMAIN.crt 
 			fi
 			
 			printf "\nInstall acm operator ...\n"
 			sed -i 's|^\(\s*newName\s*:\s*\).*|\1quay.io:443/acm-d/acm-custom-registry|' ./acm-operator/kustomization.yaml
 			sed -i "s/^\(\s*newTag\s*:\s*\).*/\1$BUILD/" ./acm-operator/kustomization.yaml
-			kubectl apply -k ./acm-operator --insecure-skip-tls-verify=true
+			kubectl apply -k ./acm-operator 
 		else 
-			oc project $ACM_NAMESPACE
-			kubectl apply -f ./acm-operator/subscription.yaml --insecure-skip-tls-verify=true
+			$KUBECTL_CMD project $ACM_NAMESPACE
+			kubectl apply -f ./acm-operator/subscription.yaml 
 		fi	
 		
 		# wait for acm operator install completed
 		waitForInstallPlan $1
 		printf "Approve install plan...\n"
-		oc --insecure-skip-tls-verify=true patch installplan `oc get installplan -n $ACM_NAMESPACE | grep $1 | cut -d' ' -f1` --type=merge -p '{"spec": {"approved": true} }'
+		$KUBECTL_CMD  patch installplan `$KUBECTL_CMD get installplan -n $ACM_NAMESPACE | grep $1 | cut -d' ' -f1` --type=merge -p '{"spec": {"approved": true} }'
 		waitForPod "multiclusterhub-operator" "acm-custom-registry" "1/1"
-		waitForPod "multicluster-operators-application" "" "4/4"	
+		case $CSV_VERSION in
+			v2.2*)
+				waitForPod "multicluster-operators-application" "" "5/5";;
+			*)
+				waitForPod "multicluster-operators-application" "" "4/4";;
+		esac
+		#waitForPod "multicluster-operators-application" "" "4/4"	
 		waitForCSV $1
 		
 		# create mch 
-		if [ $(oc --insecure-skip-tls-verify=true get mch -o name| wc -l) -lt 1 ]; then
+		if [ $($KUBECTL_CMD  get mch -o name| wc -l) -lt 1 ]; then
 			printf "\nCreate MCH instance ...\n"
 			sed -i 's|^\(\s*"mch-imageRepository"\s*:\s*\).*|\1"quay.io:443/acm-d"|' ./multiclusterhub/example-multiclusterhub-cr.yaml
 			sed -i "s/^\(\s*namespace\s*:\s*\).*/\1$ACM_NAMESPACE/" ./multiclusterhub/example-multiclusterhub-cr.yaml
-			kubectl apply -f ./multiclusterhub/example-multiclusterhub-cr.yaml --insecure-skip-tls-verify=true
+			kubectl apply -f ./multiclusterhub/example-multiclusterhub-cr.yaml 
 		fi
 		
 		# wait for install/upgrade completed
@@ -280,7 +284,7 @@ function installHub() {
 		
 		# wait for agent addon in >2.1
 		if [ "2.1.0" = "`echo -e "$(echo ${CSV_VERSION#*v})\n2.1.0" | sort -V | head -n1`" ]; then
-			waitForLocalCluster
+			waitForL$KUBECTL_CMDalCluster
 		fi
 			
 		# increase upgraded-to csv version
@@ -291,7 +295,7 @@ function installHub() {
 }
 
 function getNextInstallVersion(){
-	CURR_CSV_NAME=`oc get csv -o name --insecure-skip-tls-verify=true | awk -F'[/]' '{print $2}'`
+	CURR_CSV_NAME=`$KUBECTL_CMD get csv -o name  | awk -F'[/]' '{print $2}'`
 	CURR_CHANNEL=`echo ${CURR_CSV_NAME#*.} | awk -F'[v.]' '{print $2"."$3}'`
 	CSVS=($PACKAGEMANIFEST_CSVS)
 	
@@ -312,8 +316,8 @@ function getNextInstallVersion(){
 
 #------------- main -------------
 # uninstall if set
-oc project $ACM_NAMESPACE
-sub_count=`oc get sub -n $ACM_NAMESPACE | wc -l`
+$KUBECTL_CMD project $ACM_NAMESPACE
+sub_count=`$KUBECTL_CMD get sub -n $ACM_NAMESPACE | wc -l`
 if [ $CLEANUP_INCLUDED != 'false' ] && [ $sub_count -gt 0 ]; then 
 	uninstallHub 
 fi
