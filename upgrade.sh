@@ -165,7 +165,7 @@ function waitForCSV() {
     done
 }
 
-function waitForL$KUBECTL_CMDalCluster() {
+function waitForLocalCluster() {
     for i in {1..10}; do
 			sleep 30
       podCount=`$KUBECTL_CMD get pods -n open-cluster-management-agent-addon  | grep Running | wc -l`
@@ -249,10 +249,12 @@ function installHub() {
 			printf "\nInstall acm operator ...\n"
 			sed -i 's|^\(\s*newName\s*:\s*\).*|\1quay.io:443/acm-d/acm-custom-registry|' ./acm-operator/kustomization.yaml
 			sed -i "s/^\(\s*newTag\s*:\s*\).*/\1$BUILD/" ./acm-operator/kustomization.yaml
-			kubectl apply -k ./acm-operator 
+			$KUBECTL_CMD apply -k ./acm-operator 
+			waitForPod "acm-custom-registry" "" "1/1"	
+			$KUBECTL_CMD apply -f ./acm-operator/subscription.yaml
 		else 
 			$KUBECTL_CMD project $ACM_NAMESPACE
-			kubectl apply -f ./acm-operator/subscription.yaml 
+			$KUBECTL_CMD apply -f ./acm-operator/subscription.yaml 
 		fi	
 		
 		# wait for acm operator install completed
@@ -284,7 +286,7 @@ function installHub() {
 		
 		# wait for agent addon in >2.1
 		if [ "2.1.0" = "`echo -e "$(echo ${CSV_VERSION#*v})\n2.1.0" | sort -V | head -n1`" ]; then
-			waitForL$KUBECTL_CMDalCluster
+			waitForLocalCluster
 		fi
 			
 		# increase upgraded-to csv version

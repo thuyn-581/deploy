@@ -19,4 +19,4 @@ resources:
   - service.yaml
   - catalog-source.yaml
   - operator-group.yaml
-  - subscription.yaml
+#  - subscription.yaml
