@@ -240,7 +240,7 @@ function installHub() {
 			fi
 			
 			printf 'Apply preregs ...\n'
-			kubectl apply --openapi-patch=true -k prereqs/ 
+			$KUBECTL_CMD apply --openapi-patch=true -k prereqs/ 
 			$KUBECTL_CMD project $ACM_NAMESPACE 
 			if [[ $INGRESS_DOMAIN != 'none' ]]; then
 				$KUBECTL_CMD create configmap custom-ca --from-file=ca-bundle.crt=$CERT_DIR/*.$INGRESS_DOMAIN.crt 
