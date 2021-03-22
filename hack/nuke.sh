@@ -58,22 +58,22 @@ for apiservice in $(oc get apiservice | grep mcm | cut -f 1 -d ' '); do oc delet
 for apiservice in $(oc get apiservice | grep certmanager | cut -f 1 -d ' '); do oc delete apiservice $apiservice --ignore-not-found || true; done
 for apiservice in $(oc get apiservice | grep clusterapi.io | cut -f 1 -d ' '); do oc delete apiservice $apiservice --ignore-not-found || true; done
 for apiservice in $(oc get apiservice | grep clusterregistry.k8s.io | cut -f 1 -d ' '); do oc delete apiservice $apiservice --ignore-not-found || true; done
-for role in $(oc get clusterrole | grep multicluster-mongo | cut -f 1 -d ' '); do oc delete clusterrole $role --ignore-not-found || true; done
-for role in $(oc get clusterrole | grep cert-manager | cut -f 1 -d ' '); do oc delete clusterrole $role --ignore-not-found || true; done
-for role in $(oc get clusterrole | grep mcm | cut -f 1 -d ' '); do oc delete clusterrole $role --ignore-not-found || true; done
-for role in $(oc get clusterrole | grep rcm | cut -f 1 -d ' '); do oc delete clusterrole $role --ignore-not-found || true; done
-for role in $(oc get clusterrole | grep klusterlet | cut -f 1 -d ' '); do oc delete clusterrole $role --ignore-not-found || true; done
-for role in $(oc get clusterrole | grep managedcluster | cut -f 1 -d ' '); do oc delete clusterrole $role --ignore-not-found || true; done
-for role in $(oc get clusterrole | grep search | cut -f 1 -d ' '); do oc delete clusterrole $role --ignore-not-found || true; done
-for role in $(oc get clusterrole | grep configmap-watcher | cut -f 1 -d ' '); do oc delete clusterrole $role --ignore-not-found || true; done
-for role in $(oc get clusterrolebinding | grep multicluster-mongo | cut -f 1 -d ' '); do oc delete clusterrolebinding $role --ignore-not-found || true; done
-for role in $(oc get clusterrolebinding | grep cert-manager | cut -f 1 -d ' '); do oc delete clusterrolebinding $role --ignore-not-found || true; done
-for role in $(oc get clusterrolebinding | grep mcm | cut -f 1 -d ' '); do oc delete clusterrolebinding $role --ignore-not-found || true; done
-for role in $(oc get clusterrolebinding | grep rcm | cut -f 1 -d ' '); do oc delete clusterrolebinding $role --ignore-not-found || true; done
-for role in $(oc get clusterrolebinding | grep klusterlet | cut -f 1 -d ' '); do oc delete clusterrolebinding $role --ignore-not-found || true; done
-for role in $(oc get clusterrolebinding | grep managedcluster | cut -f 1 -d ' '); do oc delete clusterrolebinding $role --ignore-not-found || true; done
-for role in $(oc get clusterrolebinding | grep search | cut -f 1 -d ' '); do oc delete clusterrolebinding $role --ignore-not-found || true; done
-for role in $(oc get clusterrolebinding | grep configmap-watcher | cut -f 1 -d ' '); do oc delete clusterrolebinding $role --ignore-not-found || true; done
+for role in $(oc get clusterrole | grep multicluster-mongo | cut -f 1 -d ' '); do oc patch -p '{"metadata":{"finalizers": []}}' --type=merge clusterrole $role --ignore-not-found || true; done
+for role in $(oc get clusterrole | grep cert-manager | cut -f 1 -d ' '); do oc patch -p '{"metadata":{"finalizers": []}}' --type=merge clusterrole $role --ignore-not-found || true; done
+for role in $(oc get clusterrole | grep mcm | cut -f 1 -d ' '); do oc patch -p '{"metadata":{"finalizers": []}}' --type=merge clusterrole $role --ignore-not-found || true; done
+for role in $(oc get clusterrole | grep rcm | cut -f 1 -d ' '); do oc patch -p '{"metadata":{"finalizers": []}}' --type=merge clusterrole $role --ignore-not-found || true; done
+for role in $(oc get clusterrole | grep klusterlet | cut -f 1 -d ' '); do oc patch -p '{"metadata":{"finalizers": []}}' --type=merge clusterrole $role --ignore-not-found || true; done
+for role in $(oc get clusterrole | grep managedcluster | cut -f 1 -d ' '); do oc patch -p '{"metadata":{"finalizers": []}}' --type=merge clusterrole $role --ignore-not-found || true; done
+for role in $(oc get clusterrole | grep search | cut -f 1 -d ' '); do oc patch -p '{"metadata":{"finalizers": []}}' --type=merge clusterrole $role --ignore-not-found || true; done
+for role in $(oc get clusterrole | grep configmap-watcher | cut -f 1 -d ' '); do oc patch -p '{"metadata":{"finalizers": []}}' --type=merge clusterrole $role --ignore-not-found || true; done
+for role in $(oc get clusterrolebinding | grep multicluster-mongo | cut -f 1 -d ' '); do oc patch -p '{"metadata":{"finalizers": []}}' --type=merge clusterrolebinding $role --ignore-not-found || true; done
+for role in $(oc get clusterrolebinding | grep cert-manager | cut -f 1 -d ' '); do oc patch -p '{"metadata":{"finalizers": []}}' --type=merge clusterrolebinding $role --ignore-not-found || true; done
+for role in $(oc get clusterrolebinding | grep mcm | cut -f 1 -d ' '); do oc patch -p '{"metadata":{"finalizers": []}}' --type=merge clusterrolebinding $role --ignore-not-found || true; done
+for role in $(oc get clusterrolebinding | grep rcm | cut -f 1 -d ' '); do oc patch -p '{"metadata":{"finalizers": []}}' --type=merge clusterrolebinding $role --ignore-not-found || true; done
+for role in $(oc get clusterrolebinding | grep klusterlet | cut -f 1 -d ' '); do oc patch -p '{"metadata":{"finalizers": []}}' --type=merge clusterrolebinding $role --ignore-not-found || true; done
+for role in $(oc get clusterrolebinding | grep managedcluster | cut -f 1 -d ' '); do oc patch -p '{"metadata":{"finalizers": []}}' --type=merge clusterrolebinding $role --ignore-not-found || true; done
+for role in $(oc get clusterrolebinding | grep search | cut -f 1 -d ' '); do oc patch -p '{"metadata":{"finalizers": []}}' --type=merge clusterrolebinding $role --ignore-not-found || true; done
+for role in $(oc get clusterrolebinding | grep configmap-watcher | cut -f 1 -d ' '); do oc patch -p '{"metadata":{"finalizers": []}}' --type=merge clusterrolebinding $role --ignore-not-found || true; done
 for role in $(oc get serviceaccount | grep search | cut -f 1 -d ' '); do oc delete serviceaccount $role --ignore-not-found || true; done
 for secret in $(oc get Secret | grep search | cut -f 1 -d ' '); do oc delete Secret $secret -n hive --ignore-not-found || true; done
 for secret in $(oc get Secret | grep cert-manager | cut -f 1 -d ' '); do oc delete Secret $secret -n hive --ignore-not-found || true; done
@@ -110,8 +110,8 @@ oc delete namespace hive --wait=false || true
 
 for deployment in $(oc get Deployments | cut -f 1 -d ' '); do oc delete Deployment $deployment --ignore-not-found || true; done
 for subscription in $(oc get subscription | cut -f 1 -d ' '); do oc delete subscription $subscription --ignore-not-found || true; done
-for role in $(oc get clusterrole | grep open-cluster-management | cut -f 1 -d ' '); do oc delete clusterrole $role --ignore-not-found || true; done
-for role in $(oc get clusterrole | grep multicluster | cut -f 1 -d ' '); do oc delete clusterrole $role --ignore-not-found || true; done
+for role in $(oc get clusterrole | grep open-cluster-management | cut -f 1 -d ' '); do oc patch -p '{"metadata":{"finalizers": []}}' --type=merge clusterrole $role --ignore-not-found || true; done
+for role in $(oc get clusterrole | grep multicluster | cut -f 1 -d ' '); do oc patch -p '{"metadata":{"finalizers": []}}' --type=merge clusterrole $role --ignore-not-found || true; done
 oc get csv | grep "multicluster" | awk '{ print $1 }' | xargs oc delete csv --wait=false --ignore-not-found || true
 oc get csv | grep "multicloud" | awk '{ print $1 }' | xargs oc delete csv --wait=false --ignore-not-found || true
 oc get crd | grep "open-cluster-management.io" | awk '{ print $1 }' | xargs oc delete crd --wait=false --ignore-not-found || true
@@ -133,8 +133,8 @@ oc get scc | grep "kui-proxy" | awk '{ print $1 }' | xargs oc delete scc --wait=
 oc get crd | grep "certmanager" | awk '{ print $1 }' | xargs oc delete crd --wait=false --ignore-not-found || true
 oc get crd | grep "mcm" | awk '{ print $1 }' | xargs oc delete crd --wait=false --ignore-not-found || true
 oc get crd | grep "ibm" | awk '{ print $1 }' | xargs oc delete crd --wait=false --ignore-not-found || true
-oc get clusterrole | grep "cert-manager" | awk '{ print $1 }' | xargs oc delete clusterrole --wait=false --ignore-not-found || true
-oc get clusterrolebinding | grep "cert-manager" | awk '{ print $1 }' | xargs oc delete clusterrolebinding --wait=false --ignore-not-found || true
+oc get clusterrole | grep "cert-manager" | awk '{ print $1 }' | xargs oc patch -p '{"metadata":{"finalizers": []}}' --type=merge clusterrole --wait=false --ignore-not-found || true
+oc get clusterrolebinding | grep "cert-manager" | awk '{ print $1 }' | xargs oc patch -p '{"metadata":{"finalizers": []}}' --type=merge clusterrolebinding --wait=false --ignore-not-found || true
 oc get mutatingwebhookconfiguration | grep "cert-manager" | awk '{ print $1 }' | xargs oc delete mutatingwebhookconfiguration --wait=false --ignore-not-found || true
 
 cd ../
@@ -167,12 +167,12 @@ oc delete oauthclient multicloudingress || true
 
 # rcm
 # 1.x
-oc delete crd endpointconfigs.multicloud.ibm.com || true
+oc patch -p '{"metadata":{"finalizers": []}}' --type=merge crd endpointconfigs.multicloud.ibm.com || true
 # 2.x
-oc delete crd klusterletconfigs.agent.open-cluster-management.io || true
+oc patch -p '{"metadata":{"finalizers": []}}' --type=merge crd klusterletconfigs.agent.open-cluster-management.io || true
 
-oc delete clusterrole rcm-controller || true
-oc delete clusterrolebinding rcm-controller || true
+oc patch -p '{"metadata":{"finalizers": []}}' --type=merge clusterrole rcm-controller || true
+oc patch -p '{"metadata":{"finalizers": []}}' --type=merge clusterrolebinding rcm-controller || true
 
 # workaround for https://github.com/open-cluster-management/backlog/issues/2915
 oc delete apiservice v1.admission.cluster.open-cluster-management.io v1beta1.proxy.open-cluster-management.io
@@ -182,7 +182,7 @@ oc delete ValidatingWebhookConfiguration managedclustervalidators.admission.clus
 oc delete ns open-cluster-management-hub --wait=false
 
 # clean up leftover cert-manager resources
-oc delete rolebinding -n kube-system cert-manager-webhook-webhook-authentication-reader
+oc patch -p '{"metadata":{"finalizers": []}}' --type=merge rolebinding -n kube-system cert-manager-webhook-webhook-authentication-reader
 
 
 

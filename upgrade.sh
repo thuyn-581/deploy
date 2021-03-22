@@ -87,7 +87,7 @@ function waitForPod() {
 
 function waitForAllPods() {
 	COMPLETE=1
-	rel_channel=`$KUBECTL_CMD  get sub acm-operator-subscription -n $ACM_NAMESPACE -o jsonpath='{.spec.channel}' | cut -d "-" -f2`
+	rel_channel=`$KUBECTL_CMD get sub acm-operator-subscription -n $ACM_NAMESPACE -o jsonpath='{.spec.channel}' | cut -d "-" -f2`
 	case $rel_channel in
 	2.0*)
 		TOTAL_POD_COUNT=55;;
@@ -95,6 +95,8 @@ function waitForAllPods() {
 		TOTAL_POD_COUNT=56;;
 	2.2*)
 		TOTAL_POD_COUNT=60;;
+	2.3*)
+		TOTAL_POD_COUNT=57;;		
 	esac
 	
 	for i in {1..20}; do	
@@ -263,12 +265,13 @@ function installHub() {
 		$KUBECTL_CMD  patch installplan `$KUBECTL_CMD get installplan -n $ACM_NAMESPACE | grep $1 | cut -d' ' -f1` --type=merge -p '{"spec": {"approved": true} }'
 		waitForPod "multiclusterhub-operator" "acm-custom-registry" "1/1"
 		case $CSV_VERSION in
-			v2.2*)
-				waitForPod "multicluster-operators-application" "" "5/5";;
-			*)
+			v2.0*)
+				waitForPod "multicluster-operators-application" "" "4/4";;		
+			v2.1*)
 				waitForPod "multicluster-operators-application" "" "4/4";;
+			*)
+				waitForPod "multicluster-operators-application" "" "5/5";;
 		esac
-		#waitForPod "multicluster-operators-application" "" "4/4"	
 		waitForCSV $1
 		
 		# create mch 
