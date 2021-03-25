@@ -6,13 +6,13 @@ PACKAGEMANIFEST_CSVS=`$KUBECTL_CMD get packagemanifest advanced-cluster-manageme
 
 
 function uninstallHub() {
-	printf "UNINSTALL HUB\n"
+	printf "UNINSTALL HUB in $1\n"
 	echo "DESTROY" | ./clean-clusters.sh
 	bma_namespaces=`$KUBECTL_CMD get baremetalasset  --all-namespaces --ignore-not-found| awk '!a[$1]++ { if(NR>1) print $1 }'`
 	for ns in $bma_namespaces; do 
 			$KUBECTL_CMD delete baremetalasset --all -n $ns --ignore-not-found 
 	done
-	$KUBECTL_CMD project $ACM_NAMESPACE
+	$KUBECTL_CMD project $1
 	$KUBECTL_CMD delete mco --all --ignore-not-found 
 	sleep 10
 	$KUBECTL_CMD delete mch --all --ignore-not-found 
@@ -25,8 +25,8 @@ function uninstallHub() {
 
 	# delete remaining resources if any
 	echo 'delete remaining resources...'
-	$KUBECTL_CMD project $ACM_NAMESPACE 
-	helm ls --namespace $ACM_NAMESPACE | cut -f 1 | tail -n +2 | xargs -n 1 helm delete --namespace $ACM_NAMESPACE
+	$KUBECTL_CMD project $1 
+	helm ls --namespace $1 | cut -f 1 | tail -n +2 | xargs -n 1 helm delete --namespace $1
 	$KUBECTL_CMD delete apiservice v1.admission.cluster.open-cluster-management.io v1beta1.webhook.certmanager.k8s.io
 	$KUBECTL_CMD delete clusterimageset --all
 	$KUBECTL_CMD delete configmap cert-manager-controller cert-manager-cainjector-leader-election cert-manager-cainjector-leader-election-core
@@ -324,15 +324,17 @@ function getNextInstallVersion(){
 
 #------------- main -------------
 # uninstall if set
-$KUBECTL_CMD project $ACM_NAMESPACE
-sub_count=`$KUBECTL_CMD get sub -n $ACM_NAMESPACE | wc -l`
+#$KUBECTL_CMD project $ACM_NAMESPACE
+sub_count=`$KUBECTL_CMD get sub --all-namespaces --ignore-not-found | grep acm-operator-subscription | wc -l`
 if [ $CLEANUP_INCLUDED != 'false' ] && [ $sub_count -gt 0 ]; then 
-	uninstallHub 
+  ns=`$KUBECTL_CMD get sub --all-namespaces | grep acm-operator-subscription |  awk '{print $1}'`
+	uninstallHub $ns
 fi
+
 # install base version
 if [ $UPGRADE_ONLY != 'true' ]; then
 	printf "\nInstall base version $STARTING_CSV_VERSION"	
-  installHub $STARTING_CSV_VERSION	
+  installHub $STARTING_CSV_VERSION
 else
 	getNextInstallVersion
 	v1=$(echo ${CSV_VERSION#*v})
@@ -341,7 +343,7 @@ else
 	do
 		#upgrade
 		printf "\nUpgrade Hub to $CSV_VERSION"
-		installHub $CSV_VERSION 
+		installHub $CSV_VERSION
 		v1=$(echo ${CSV_VERSION#*v})
 	done
 	sleep 10
