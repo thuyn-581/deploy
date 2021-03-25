@@ -14,14 +14,17 @@ function uninstallHub() {
 	done
 	$KUBECTL_CMD project $ACM_NAMESPACE
 	$KUBECTL_CMD delete mco --all --ignore-not-found 
+	sleep 10
 	$KUBECTL_CMD delete mch --all --ignore-not-found 
+	echo 'wait 200s...'
 	sleep 200
 	$KUBECTL_CMD delete -k ./acm-operator 
 	$KUBECTL_CMD delete csv advanced-cluster-management.$STARTING_CSV_VERSION 
 	$KUBECTL_CMD delete -k ./prereqs 
-	sleep 20
+	sleep 100
 
 	# delete remaining resources if any
+	echo 'delete remaining resources...'
 	$KUBECTL_CMD project $ACM_NAMESPACE 
 	helm ls --namespace $ACM_NAMESPACE | cut -f 1 | tail -n +2 | xargs -n 1 helm delete --namespace $ACM_NAMESPACE
 	$KUBECTL_CMD delete apiservice v1.admission.cluster.open-cluster-management.io v1beta1.webhook.certmanager.k8s.io
@@ -36,6 +39,7 @@ function uninstallHub() {
 	$KUBECTL_CMD delete validatingwebhookconfiguration cert-manager-webhook
 	sleep 100
 	
+	echo 'run nuke script...'
 	./hack/nuke.sh
 	sleep 100
 }
@@ -95,8 +99,8 @@ function waitForAllPods() {
 		TOTAL_POD_COUNT=56;;
 	2.2*)
 		TOTAL_POD_COUNT=60;;
-	2.3*)
-		TOTAL_POD_COUNT=57;;		
+	*)
+		TOTAL_POD_COUNT=60;;		
 	esac
 	
 	for i in {1..20}; do	
@@ -253,6 +257,7 @@ function installHub() {
 			sed -i "s/^\(\s*newTag\s*:\s*\).*/\1$BUILD/" ./acm-operator/kustomization.yaml
 			$KUBECTL_CMD apply -k ./acm-operator 
 			waitForPod "acm-custom-registry" "" "1/1"	
+			sleep 10
 			$KUBECTL_CMD apply -f ./acm-operator/subscription.yaml
 		else 
 			$KUBECTL_CMD project $ACM_NAMESPACE
@@ -265,12 +270,10 @@ function installHub() {
 		$KUBECTL_CMD  patch installplan `$KUBECTL_CMD get installplan -n $ACM_NAMESPACE | grep $1 | cut -d' ' -f1` --type=merge -p '{"spec": {"approved": true} }'
 		waitForPod "multiclusterhub-operator" "acm-custom-registry" "1/1"
 		case $CSV_VERSION in
-			v2.0*)
-				waitForPod "multicluster-operators-application" "" "4/4";;		
-			v2.1*)
-				waitForPod "multicluster-operators-application" "" "4/4";;
+			v2.2*)
+				waitForPod "multicluster-operators-application" "" "5/5";;		
 			*)
-				waitForPod "multicluster-operators-application" "" "5/5";;
+				waitForPod "multicluster-operators-application" "" "4/4";;
 		esac
 		waitForCSV $1
 		
