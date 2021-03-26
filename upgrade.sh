@@ -327,7 +327,7 @@ function getNextInstallVersion(){
 #$KUBECTL_CMD project $ACM_NAMESPACE
 sub_count=`$KUBECTL_CMD get sub --all-namespaces --ignore-not-found | grep 'acm-operator-subscription\|advanced-cluster-management' | wc -l`
 if [ $CLEANUP_INCLUDED != 'false' ] && [ $sub_count -gt 0 ]; then 
-  ns=`$KUBECTL_CMD get sub --all-namespaces | grep acm-operator-subscription |  awk '{print $1}'`
+  ns=`$KUBECTL_CMD get sub --all-namespaces | grep 'acm-operator-subscription\|advanced-cluster-management' |  awk '{print $1}'`
 	uninstallHub $ns
 fi
 
