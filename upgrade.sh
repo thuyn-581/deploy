@@ -4,46 +4,6 @@ TMP_DIR=$HOME/tmp
 KUBECTL_CMD="oc --insecure-skip-tls-verify=true"
 PACKAGEMANIFEST_CSVS=`$KUBECTL_CMD get packagemanifest advanced-cluster-management -n ${ACM_NAMESPACE} -o=jsonpath='{.status.channels[*].currentCSV}'`
 
-
-function uninstallHub() {
-	printf "UNINSTALL HUB in $1\n"
-	echo "DESTROY" | ./clean-clusters.sh
-	bma_namespaces=`$KUBECTL_CMD get baremetalasset  --all-namespaces --ignore-not-found| awk '!a[$1]++ { if(NR>1) print $1 }'`
-	for ns in $bma_namespaces; do 
-			$KUBECTL_CMD delete baremetalasset --all -n $ns --ignore-not-found 
-	done
-	$KUBECTL_CMD project $1
-	$KUBECTL_CMD delete mco --all --ignore-not-found 
-	sleep 10
-	$KUBECTL_CMD delete mch --all --ignore-not-found 
-	echo 'wait 200s...'
-	sleep 200
-	$KUBECTL_CMD delete -k ./acm-operator 
-	$KUBECTL_CMD delete csv advanced-cluster-management.$STARTING_CSV_VERSION 
-	$KUBECTL_CMD delete -k ./prereqs 
-	sleep 100
-
-	# delete remaining resources if any
-	echo 'delete remaining resources...'
-	$KUBECTL_CMD project $1 
-	helm ls --namespace $1 | cut -f 1 | tail -n +2 | xargs -n 1 helm delete --namespace $1
-	$KUBECTL_CMD delete apiservice v1.admission.cluster.open-cluster-management.io v1beta1.webhook.certmanager.k8s.io
-	$KUBECTL_CMD delete clusterimageset --all
-	$KUBECTL_CMD delete configmap cert-manager-controller cert-manager-cainjector-leader-election cert-manager-cainjector-leader-election-core
-	$KUBECTL_CMD delete consolelink acm-console-link
-	$KUBECTL_CMD delete crd klusterletaddonconfigs.agent.open-cluster-management.io placementbindings.policy.open-cluster-management.io policies.policy.open-cluster-management.io userpreferences.console.open-cluster-management.io searchservices.search.acm.com
-	$KUBECTL_CMD delete mutatingwebhookconfiguration cert-manager-webhook
-	$KUBECTL_CMD delete oauthclient multicloudingress
-	$KUBECTL_CMD delete rolebinding -n kube-system cert-manager-webhook-webhook-authentication-reader
-	$KUBECTL_CMD delete scc kui-proxy-scc
-	$KUBECTL_CMD delete validatingwebhookconfiguration cert-manager-webhook
-	sleep 100
-	
-	echo 'run nuke script...'
-	./hack/nuke.sh
-	sleep 100
-}
-
 function waitForInstallPlan() {
     version=$1
     for i in `seq 1 20`; do
@@ -99,6 +59,8 @@ function waitForAllPods() {
 		TOTAL_POD_COUNT=56;;
 	2.2*)
 		TOTAL_POD_COUNT=60;;
+	2.3*)
+		TOTAL_POD_COUNT=54;;		
 	*)
 		TOTAL_POD_COUNT=60;;		
 	esac
@@ -328,7 +290,7 @@ function getNextInstallVersion(){
 sub_count=`$KUBECTL_CMD get sub --all-namespaces --ignore-not-found | grep 'acm-operator-subscription\|advanced-cluster-management' | wc -l`
 if [ $CLEANUP_INCLUDED != 'false' ] && [ $sub_count -gt 0 ]; then 
   ns=`$KUBECTL_CMD get sub --all-namespaces | grep 'acm-operator-subscription\|advanced-cluster-management' |  awk '{print $1}'`
-	uninstallHub $ns
+	./destroy.sh $ns
 fi
 
 # install base version
